@@ -23,10 +23,15 @@ android {
 
     defaultConfig {
         applicationId = "com.nexpoket.app"
-        minSdk = flutter.minSdkVersion
+        minSdk = 21   // 🔥 FIXED (flutter.minSdkVersion हटाया)
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+    }
+
+    // 🔥 IMPORTANT FIX (ADD THIS)
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -59,6 +64,12 @@ android {
 
             isMinifyEnabled = false
             isShrinkResources = false
+
+            // 🔥 ADD THIS (IMPORTANT)
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

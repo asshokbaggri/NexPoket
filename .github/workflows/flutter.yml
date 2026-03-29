@@ -1,4 +1,4 @@
-name: Android APK Build (Final Fix)
+name: Flutter Build
 
 on:
   push:
@@ -13,40 +13,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 🔥 Setup Java (IMPORTANT)
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      # 🔥 Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      # 📦 Get dependencies
+      # 🔥 MOVE INTO PROJECT (CRITICAL FIX)
+      - name: Go to project
+        run: cd mobile_app
+
+      # ✅ CLEAN
+      - name: Clean project
+        working-directory: mobile_app
+        run: flutter clean
+
+      # ✅ DEPENDENCIES
       - name: Install dependencies
-        run: |
-          cd mobile_app
-          flutter pub get
+        working-directory: mobile_app
+        run: flutter pub get
 
-      # 🔥 Build using Gradle directly (BYPASS)
-      - name: Build APK (Direct Gradle)
-        run: |
-          cd mobile_app/android
-          chmod +x gradlew
-          ./gradlew assembleRelease
+      # ⚠️ ICONS SAFE
+      - name: Generate App Icons
+        working-directory: mobile_app
+        run: dart run flutter_launcher_icons || true
 
-      # 🔍 Check APK
+      # 🔥 BUILD (FINAL FIX)
+      - name: Build APK
+        working-directory: mobile_app
+        run: flutter build apk --release --no-tree-shake-icons --verbose
+
+      # 🔍 DEBUG
+      - name: Check files
+        run: ls -R mobile_app/build || true
+
+      # 🔍 FIND APK
       - name: Find APK
-        run: |
-          find mobile_app -name "*.apk"
+        run: find mobile_app -name "*.apk"
 
-      # 📦 Upload APK
+      # ✅ UPLOAD
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nexpoket-apk
-          path: mobile_app/android/app/build/outputs/apk/release/app-release.apk
+          path: mobile_app/build/app/outputs/**/*.apk

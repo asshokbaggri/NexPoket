@@ -1,4 +1,4 @@
-name: Flutter Build
+name: Android APK Build (Final Fix)
 
 on:
   push:
@@ -9,53 +9,44 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: mobile_app
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 🔥 Setup Java (IMPORTANT)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 🔥 Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
 
-      # ✅ CLEAN
-      - name: Clean project
-        run: flutter clean
-
-      # ✅ DEPENDENCIES
+      # 📦 Get dependencies
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          cd mobile_app
+          flutter pub get
 
-      # ⚠️ ICONS (SAFE)
-      - name: Generate App Icons
-        run: dart run flutter_launcher_icons || true
+      # 🔥 Build using Gradle directly (BYPASS)
+      - name: Build APK (Direct Gradle)
+        run: |
+          cd mobile_app/android
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
-      # ✅ SYNC AGAIN
-      - name: Reinstall dependencies
-        run: flutter pub get
-
-      # 🔥 BUILD (VERBOSE FOR DEBUG)
-      - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons --verbose
-
-      # 🔍 DEBUG FILES
-      - name: Debug Build Folder
-        run: ls -R build || true
-
-      # 🔍 FIND APK
+      # 🔍 Check APK
       - name: Find APK
-        run: find . -name "*.apk"
+        run: |
+          find mobile_app -name "*.apk"
 
-      # ✅ UPLOAD (AUTO SAFE)
+      # 📦 Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nexpoket-apk
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/apk/**/*.apk
+          path: mobile_app/android/app/build/outputs/apk/release/app-release.apk

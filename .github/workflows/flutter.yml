@@ -23,33 +23,41 @@ jobs:
           channel: stable
           cache: true
 
-      # ✅ CLEAN (IMPORTANT)
+      # ✅ CLEAN
       - name: Clean project
         run: flutter clean
 
-      # ✅ GET DEPENDENCIES
+      # ✅ DEPENDENCIES
       - name: Install dependencies
         run: flutter pub get
 
-      # ⚠️ SAFE ICON GENERATION (NO FAIL)
+      # ⚠️ ICONS (SAFE)
       - name: Generate App Icons
         run: dart run flutter_launcher_icons || true
 
-      # ✅ ENSURE SYNC
+      # ✅ SYNC AGAIN
       - name: Reinstall dependencies
         run: flutter pub get
 
-      # 🔥 MAIN FIX (IMPORTANT)
+      # 🔥 BUILD APK
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      # ✅ VERIFY APK EXISTS (DEBUG STEP)
-      - name: Check APK
-        run: ls -lah build/app/outputs/flutter-apk/
+      # 🔍 DEBUG (SEE ALL FILES)
+      - name: Debug Build Folder
+        run: |
+          echo "===== FULL BUILD OUTPUT ====="
+          ls -R build/
 
-      # ✅ UPLOAD APK
+      # 🔍 FIND APK (IMPORTANT)
+      - name: Find APK
+        run: |
+          echo "Searching for APK..."
+          find build -name "*.apk"
+
+      # ✅ UPLOAD (AUTO DETECT)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nexpoket-apk
-          path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/**/*.apk

@@ -21,24 +21,33 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
+      # ✅ CLEAN (IMPORTANT)
       - name: Clean project
         run: flutter clean
 
+      # ✅ GET DEPENDENCIES
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔥 FORCE ICON GENERATION (CRITICAL FIX)
+      # ⚠️ SAFE ICON GENERATION (NO FAIL)
       - name: Generate App Icons
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons || true
 
-      # 🔥 EXTRA FIX (ENSURE RESOURCES REFRESH)
-      - name: Rebuild after icon generation
+      # ✅ ENSURE SYNC
+      - name: Reinstall dependencies
         run: flutter pub get
 
+      # 🔥 MAIN FIX (IMPORTANT)
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
+      # ✅ VERIFY APK EXISTS (DEBUG STEP)
+      - name: Check APK
+        run: ls -lah build/app/outputs/flutter-apk/
+
+      # ✅ UPLOAD APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

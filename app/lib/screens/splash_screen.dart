@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'onboarding_screen.dart'; // ✅ FIXED
+import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,12 +15,14 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    // ⏱ Navigate after 2 sec
+    // ⏱ Safe navigation
     Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => const OnboardingScreen(), // ✅ FIXED FLOW
+          builder: (_) => const OnboardingScreen(),
         ),
       );
     });
@@ -31,11 +33,13 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         width: double.infinity,
+
+        // 🔥 Premium gradient
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF6A5AE0),
-              Color(0xFF8E7CFF),
+              Color(0xFF3375BB),
+              Color(0xFF5FA8FF),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -46,24 +50,28 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
 
+            // 🔹 Logo
             Image.asset(
               'assets/icon.png',
-              width: 120,
+              width: 110,
             ),
 
             const SizedBox(height: 20),
 
+            // 🔹 App Name
             const Text(
               "NexPoket",
               style: TextStyle(
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
+                letterSpacing: 1,
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
+            // 🔹 Tagline
             const Text(
               "Smart Digital Wallet",
               style: TextStyle(

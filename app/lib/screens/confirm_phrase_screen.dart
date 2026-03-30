@@ -46,11 +46,13 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
         title: const Text("Confirm Phrase"),
-        backgroundColor: Colors.transparent,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -58,7 +60,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const Text(
               "Tap the words in the correct order.",
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: Colors.grey),
             ),
 
             const SizedBox(height: 20),
@@ -72,7 +74,9 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                   onTap: () => removeWord(word),
                   child: Chip(
                     label: Text(word),
-                    backgroundColor: Colors.deepPurple,
+
+                    backgroundColor: const Color(0xFF3375BB).withOpacity(0.1),
+                    labelStyle: const TextStyle(color: Color(0xFF3375BB)),
                   ),
                 );
               }).toList(),
@@ -80,7 +84,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 20),
 
-            const Divider(color: Colors.white24),
+            const Divider(),
 
             const SizedBox(height: 20),
 
@@ -93,9 +97,14 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                   return ElevatedButton(
                     onPressed: () => selectWord(word),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1C1C2E),
+                      backgroundColor: Colors.white,
+                      elevation: 1,
+                      shadowColor: Colors.black.withOpacity(0.05),
                     ),
-                    child: Text(word),
+                    child: Text(
+                      word,
+                      style: const TextStyle(color: Colors.black),
+                    ),
                   );
                 }).toList(),
               ),
@@ -116,7 +125,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                     }
                   : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
               child: const Text("Continue"),

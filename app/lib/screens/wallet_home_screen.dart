@@ -8,7 +8,9 @@ class WalletHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based background
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -19,21 +21,21 @@ class WalletHomeScreen extends StatelessWidget {
               // 🔥 Balance Section
               const Text(
                 "Total Balance",
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: Colors.grey),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               const Text(
                 "\$12,450.00",
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 34,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.black,
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
 
               // 🔹 Actions
               Row(
@@ -90,7 +92,7 @@ class WalletHomeScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.black,
                 ),
               ),
 
@@ -100,11 +102,9 @@ class WalletHomeScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: const [
-
                     _TokenTile("Bitcoin", "BTC", "0.25", "\$7,500"),
                     _TokenTile("Ethereum", "ETH", "2.5", "\$4,200"),
                     _TokenTile("BNB", "BNB", "10", "\$750"),
-
                   ],
                 ),
               ),
@@ -116,7 +116,7 @@ class WalletHomeScreen extends StatelessWidget {
   }
 }
 
-// 🔹 Action Button (Clickable)
+// 🔹 Action Button (Modern Style)
 Widget _actionButton(
   BuildContext context,
   IconData icon,
@@ -127,19 +127,25 @@ Widget _actionButton(
     onTap: onTap,
     child: Column(
       children: [
-        CircleAvatar(
-          radius: 25,
-          backgroundColor: Colors.deepPurple,
-          child: Icon(icon, color: Colors.white),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3375BB).withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: const Color(0xFF3375BB)),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.black),
+        ),
       ],
     ),
   );
 }
 
-// 🔹 Token Tile
+// 🔹 Token Tile (Card UI)
 class _TokenTile extends StatelessWidget {
   final String name, symbol, amount, value;
 
@@ -151,14 +157,23 @@ class _TokenTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+
+        // 🔥 Soft shadow (premium feel)
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
 
           const CircleAvatar(
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: Color(0xFF3375BB),
             child: Icon(Icons.currency_bitcoin, color: Colors.white),
           ),
 
@@ -167,8 +182,14 @@ class _TokenTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(color: Colors.white)),
-              Text(symbol, style: const TextStyle(color: Colors.white70)),
+              Text(
+                name,
+                style: const TextStyle(color: Colors.black),
+              ),
+              Text(
+                symbol,
+                style: const TextStyle(color: Colors.grey),
+              ),
             ],
           ),
 
@@ -177,8 +198,14 @@ class _TokenTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amount, style: const TextStyle(color: Colors.white)),
-              Text(value, style: const TextStyle(color: Colors.white70)),
+              Text(
+                amount,
+                style: const TextStyle(color: Colors.black),
+              ),
+              Text(
+                value,
+                style: const TextStyle(color: Colors.grey),
+              ),
             ],
           ),
         ],

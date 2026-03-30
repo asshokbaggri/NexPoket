@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/wallet_home_screen.dart';
 import '../screens/discover_screen.dart';
 import '../screens/activity_screen.dart';
-import '../screens/settings_screen.dart'; // ✅ ADDED
+import '../screens/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -18,7 +18,7 @@ class _AppShellState extends State<AppShell> {
     WalletHomeScreen(),
     DiscoverScreen(),
     ActivityScreen(),
-    SettingsScreen(), // 🔥 FIXED (was placeholder)
+    SettingsScreen(),
   ];
 
   final List<String> _titles = [
@@ -31,37 +31,26 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ LIGHT MODE (theme based)
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F1A),
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          _titles[_currentIndex],
-          style: const TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(_titles[_currentIndex]),
       ),
 
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
-        child: KeyedSubtree( // ✅ FIX: smooth switching without bugs
+        child: KeyedSubtree(
           key: ValueKey(_currentIndex),
           child: _screens[_currentIndex],
         ),
       ),
 
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF1C1C2E),
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
         },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
 
         items: const [
           BottomNavigationBarItem(

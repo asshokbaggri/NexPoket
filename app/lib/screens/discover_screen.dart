@@ -6,7 +6,9 @@ class DiscoverScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -16,17 +18,20 @@ class DiscoverScreen extends StatelessWidget {
 
               // 🔍 Search
               TextField(
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   hintText: "Search dApps...",
-                  hintStyle: const TextStyle(color: Colors.white54),
+                  hintStyle: const TextStyle(color: Colors.grey),
+
                   filled: true,
-                  fillColor: const Color(0xFF1C1C2E),
+                  fillColor: Colors.grey.shade100,
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 ),
               ),
 
@@ -37,7 +42,7 @@ class DiscoverScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.black,
                 ),
               ),
 
@@ -61,7 +66,7 @@ class DiscoverScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.black,
                 ),
               ),
 
@@ -71,12 +76,10 @@ class DiscoverScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: const [
-
                     _DappTile("Uniswap", "Swap tokens easily"),
                     _DappTile("OpenSea", "NFT marketplace"),
                     _DappTile("PancakeSwap", "DeFi trading"),
                     _DappTile("Aave", "Lend & Borrow crypto"),
-
                   ],
                 ),
               ),
@@ -88,7 +91,7 @@ class DiscoverScreen extends StatelessWidget {
   }
 }
 
-// 🔹 Category Chip
+// 🔹 Category Chip (Modern)
 class _CategoryChip extends StatelessWidget {
   final String label;
 
@@ -98,13 +101,18 @@ class _CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       label: Text(label),
-      backgroundColor: const Color(0xFF1C1C2E),
-      labelStyle: const TextStyle(color: Colors.white),
+
+      backgroundColor: Colors.grey.shade100,
+      labelStyle: const TextStyle(color: Colors.black),
+
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
     );
   }
 }
 
-// 🔹 dApp Tile
+// 🔹 dApp Tile (Card UI)
 class _DappTile extends StatelessWidget {
   final String name, desc;
 
@@ -115,15 +123,25 @@ class _DappTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
+
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+
       child: Row(
         children: [
 
           const CircleAvatar(
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: Color(0xFF3375BB),
             child: Icon(Icons.language, color: Colors.white),
           ),
 
@@ -132,8 +150,14 @@ class _DappTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(color: Colors.white)),
-              Text(desc, style: const TextStyle(color: Colors.white70)),
+              Text(
+                name,
+                style: const TextStyle(color: Colors.black),
+              ),
+              Text(
+                desc,
+                style: const TextStyle(color: Colors.grey),
+              ),
             ],
           ),
         ],

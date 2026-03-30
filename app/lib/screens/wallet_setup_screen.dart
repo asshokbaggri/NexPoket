@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'seed_phrase_screen.dart'; // ✅ CONNECTED
+import 'seed_phrase_screen.dart';
 
 class WalletSetupScreen extends StatelessWidget {
   const WalletSetupScreen({super.key});
@@ -7,7 +7,9 @@ class WalletSetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -21,7 +23,7 @@ class WalletSetupScreen extends StatelessWidget {
               const Icon(
                 Icons.account_balance_wallet,
                 size: 80,
-                color: Colors.deepPurple,
+                color: Color(0xFF3375BB),
               ),
 
               const SizedBox(height: 30),
@@ -31,7 +33,7 @@ class WalletSetupScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.black,
                 ),
               ),
 
@@ -42,7 +44,7 @@ class WalletSetupScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white70,
+                  color: Colors.grey,
                 ),
               ),
 
@@ -59,7 +61,7 @@ class WalletSetupScreen extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: const Color(0xFF3375BB),
                   minimumSize: const Size(double.infinity, 55),
                 ),
                 child: const Text("Create New Wallet"),
@@ -77,12 +79,12 @@ class WalletSetupScreen extends StatelessWidget {
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white30),
+                  side: const BorderSide(color: Colors.grey),
                   minimumSize: const Size(double.infinity, 55),
                 ),
                 child: const Text(
                   "I Already Have a Wallet",
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: Colors.black),
                 ),
               ),
 

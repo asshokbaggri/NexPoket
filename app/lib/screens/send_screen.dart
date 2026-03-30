@@ -9,41 +9,59 @@ class SendScreen extends StatelessWidget {
     final amountController = TextEditingController();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
         title: const Text("Send"),
-        backgroundColor: Colors.transparent,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
+            // 🔹 Address Field
             TextField(
               controller: addressController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: const TextStyle(color: Colors.black),
+
+              decoration: InputDecoration(
                 labelText: "Recipient Address",
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
+
+                filled: true,
+                fillColor: Colors.grey.shade100,
+
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
 
             const SizedBox(height: 20),
 
+            // 🔹 Amount Field
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: const TextStyle(color: Colors.black),
+
+              decoration: InputDecoration(
                 labelText: "Amount",
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
+
+                filled: true,
+                fillColor: Colors.grey.shade100,
+
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
 
             const Spacer(),
 
+            // 🔥 Send Button
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -51,7 +69,7 @@ class SendScreen extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
               child: const Text("Send"),

@@ -15,10 +15,37 @@ class NexPoketApp extends StatelessWidget {
       title: 'NexPoket',
       debugShowCheckedModeBanner: false,
 
+      // 🔥 LIGHT THEME (Trust Wallet Style)
       theme: ThemeData(
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF3375BB),
+
+        scaffoldBackgroundColor: Colors.white,
+
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFF3375BB),
+          brightness: Brightness.light,
         ),
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: Color(0xFF3375BB),
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+        ),
+
         useMaterial3: true,
       ),
 

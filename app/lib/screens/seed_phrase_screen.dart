@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ✅ Clipboard
-import 'confirm_phrase_screen.dart';   // ✅ NEXT FLOW
+import 'package:flutter/services.dart';
+import 'confirm_phrase_screen.dart';
 
 class SeedPhraseScreen extends StatelessWidget {
   const SeedPhraseScreen({super.key});
@@ -22,11 +22,13 @@ class SeedPhraseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
         title: const Text("Your Recovery Phrase"),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -35,7 +37,7 @@ class SeedPhraseScreen extends StatelessWidget {
             const Text(
               "Write down or copy these words in order and keep them safe.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: Colors.grey),
             ),
 
             const SizedBox(height: 20),
@@ -53,14 +55,20 @@ class SeedPhraseScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C2E),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white10),
+
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       "${index + 1}. ${_seedWords[index]}",
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.black),
                     ),
                   );
                 },
@@ -72,7 +80,7 @@ class SeedPhraseScreen extends StatelessWidget {
             // ⚠️ Warning
             const Text(
               "Never share your recovery phrase with anyone.",
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Colors.red),
             ),
 
             const SizedBox(height: 20),
@@ -81,7 +89,7 @@ class SeedPhraseScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () => _copyToClipboard(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
               child: const Text("Copy Phrase"),
@@ -100,12 +108,12 @@ class SeedPhraseScreen extends StatelessWidget {
                 );
               },
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white30),
+                side: const BorderSide(color: Colors.grey),
                 minimumSize: const Size(double.infinity, 50),
               ),
               child: const Text(
                 "I’ve Saved It",
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.black),
               ),
             ),
           ],

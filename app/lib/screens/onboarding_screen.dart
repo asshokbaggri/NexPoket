@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'wallet_setup_screen.dart'; // ✅ FIXED IMPORT
+import 'wallet_setup_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -41,32 +41,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.ease,
       );
     } else {
-      _goToWalletSetup(); // ✅ FIXED FLOW
+      _goToWalletSetup();
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose(); // ✅ MEMORY FIX
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Column(
           children: [
 
-            // 🔹 Skip button
+            // 🔹 Skip
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
-                onPressed: _goToWalletSetup, // ✅ FIXED
+                onPressed: _goToWalletSetup,
                 child: const Text(
                   "Skip",
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: Colors.grey),
                 ),
               ),
             ),
@@ -88,7 +90,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         const Icon(
                           Icons.account_balance_wallet,
                           size: 100,
-                          color: Colors.deepPurple,
+                          color: Color(0xFF3375BB),
                         ),
 
                         const SizedBox(height: 40),
@@ -99,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Colors.black,
                           ),
                         ),
 
@@ -110,7 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Colors.white70,
+                            color: Colors.grey,
                           ),
                         ),
                       ],
@@ -120,19 +122,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // 🔹 Dots Indicator
+            // 🔹 Dots
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _pages.length,
-                (index) => Container(
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.all(4),
-                  width: _currentIndex == index ? 12 : 8,
+                  width: _currentIndex == index ? 14 : 8,
                   height: 8,
                   decoration: BoxDecoration(
                     color: _currentIndex == index
-                        ? Colors.deepPurple
-                        : Colors.grey,
+                        ? const Color(0xFF3375BB)
+                        : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -147,7 +150,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: ElevatedButton(
                 onPressed: _nextPage,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: const Color(0xFF3375BB),
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 child: Text(

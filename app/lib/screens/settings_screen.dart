@@ -6,7 +6,9 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      // ✅ Theme based
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -18,7 +20,7 @@ class SettingsScreen extends StatelessWidget {
                 children: const [
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Color(0xFF3375BB),
                     child: Icon(Icons.person, color: Colors.white),
                   ),
                   SizedBox(width: 15),
@@ -27,11 +29,15 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       Text(
                         "NexPoket User",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       Text(
                         "View Profile",
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: Colors.grey),
                       ),
                     ],
                   )
@@ -43,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
               const Text(
                 "Security",
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: Colors.grey,
                   fontSize: 14,
                 ),
               ),
@@ -59,7 +65,7 @@ class SettingsScreen extends StatelessWidget {
               const Text(
                 "General",
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: Colors.grey,
                   fontSize: 14,
                 ),
               ),
@@ -93,18 +99,36 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-// 🔹 Settings Tile
+// 🔹 Settings Tile (Card Style)
 Widget _tile(IconData icon, String title) {
   return Container(
     margin: const EdgeInsets.only(bottom: 12),
+
     decoration: BoxDecoration(
-      color: const Color(0xFF1C1C2E),
+      color: Colors.white,
       borderRadius: BorderRadius.circular(12),
+
+      // 🔥 soft shadow
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
     ),
+
     child: ListTile(
-      leading: Icon(icon, color: Colors.white),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white54),
+      leading: Icon(icon, color: const Color(0xFF3375BB)),
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.black),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: Colors.grey,
+      ),
       onTap: () {},
     ),
   );

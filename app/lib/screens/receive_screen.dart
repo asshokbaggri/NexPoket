@@ -18,11 +18,12 @@ class ReceiveScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
         title: const Text("Receive"),
-        backgroundColor: Colors.transparent,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -30,29 +31,43 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 🔳 Fake QR (placeholder)
+            // 🔳 QR Card
             Container(
               height: 200,
               width: 200,
-              color: Colors.white,
+
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+
               alignment: Alignment.center,
               child: const Text("QR"),
             ),
 
             const SizedBox(height: 20),
 
+            // 🔹 Address
             Text(
               walletAddress,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: Colors.grey),
             ),
 
             const SizedBox(height: 20),
 
+            // 🔥 Copy Button
             ElevatedButton(
               onPressed: () => copyAddress(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF3375BB),
               ),
               child: const Text("Copy Address"),
             ),

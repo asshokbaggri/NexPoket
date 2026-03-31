@@ -110,25 +110,29 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
             const SizedBox(height: 10),
 
             // 🔥 PASS REAL DATA
+            // 🔥 BUTTON FIX
+
             OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ConfirmPhraseScreen(
-                      seedWords: _seedWords,
-                      walletAddress: walletAddress ?? "",
-                    ),
-                  ),
-                );
-              },
+              onPressed: walletAddress == null
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ConfirmPhraseScreen(
+                            seedWords: _seedWords,
+                            walletAddress: walletAddress!,
+                          ),
+                        ),
+                      );
+                    },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.grey),
                 minimumSize: const Size(double.infinity, 50),
               ),
-              child: const Text(
-                "I’ve Saved It",
-                style: TextStyle(color: Colors.black),
+              child: Text(
+                walletAddress == null ? "Loading..." : "I’ve Saved It",
+                style: const TextStyle(color: Colors.black),
               ),
             ),
           ],

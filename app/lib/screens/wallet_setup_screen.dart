@@ -51,17 +51,20 @@ class WalletSetupScreen extends StatelessWidget {
               const Spacer(),
 
               // 🔥 Create Wallet Button
+              // Only button fix (contrast)
+
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SeedPhraseScreen(),
-                    ),
-                  );
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(
+                       builder: (_) => const SeedPhraseScreen(),
+                     ),
+                   );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3375BB),
+                  foregroundColor: Colors.white, // ✅ FIX
                   minimumSize: const Size(double.infinity, 55),
                 ),
                 child: const Text("Create New Wallet"),

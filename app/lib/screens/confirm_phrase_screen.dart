@@ -111,7 +111,10 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
               alignment: Alignment.centerRight,
               child: IconButton(
                 onPressed: removeLastWord,
-                icon: const Icon(Icons.backspace),
+                icon: const Icon(
+                  Icons.backspace,
+                  color: Colors.black, // ✅ FIX
+                ),
               ),
             ),
 

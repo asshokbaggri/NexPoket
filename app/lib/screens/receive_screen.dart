@@ -38,12 +38,18 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 🔥 REAL QR CODE
+            // 🔥 QR CARD (FIXED CONTRAST)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white : Colors.white,
+                color: Colors.white, // हमेशा white (QR readable रहे)
                 borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                  )
+                ],
               ),
               child: QrImageView(
                 data: walletAddress,
@@ -54,7 +60,7 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // 🔹 ADDRESS BOX
+            // 🔹 ADDRESS BOX (FIXED)
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -65,23 +71,30 @@ class ReceiveScreen extends StatelessWidget {
               child: Text(
                 walletAddress,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white : Colors.black, // ✅ FIX
+                ),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // 🔥 ACTION BUTTONS
+            // 🔥 ACTION BUTTONS (FIXED)
             Row(
               children: [
 
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => copyAddress(context),
-                    icon: const Icon(Icons.copy),
-                    label: const Text("Copy"),
+                    icon: const Icon(Icons.copy, color: Colors.white),
+                    label: const Text(
+                      "Copy",
+                      style: TextStyle(color: Colors.white),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3375BB),
+                      minimumSize: const Size(double.infinity, 50),
                     ),
                   ),
                 ),
@@ -91,8 +104,15 @@ class ReceiveScreen extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: shareAddress,
-                    icon: const Icon(Icons.share),
-                    label: const Text("Share"),
+                    icon: const Icon(Icons.share, color: Color(0xFF3375BB)),
+                    label: const Text(
+                      "Share",
+                      style: TextStyle(color: Color(0xFF3375BB)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF3375BB)),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
                   ),
                 ),
               ],
@@ -100,9 +120,11 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            const Text(
+            Text(
               "Only send supported assets to this address.",
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

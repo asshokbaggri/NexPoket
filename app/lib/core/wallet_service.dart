@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:hex/hex.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
+import 'storage_service.dart';
 
 class WalletService {
 
@@ -24,13 +25,16 @@ class WalletService {
     final credentials = EthPrivateKey.fromHex(privateKeyHex);
     final address = await credentials.extractAddress();
 
+    // 🔐 SAVE SECURELY
+    await StorageService.savePrivateKey(privateKeyHex);
+    await StorageService.saveAddress(address.hex);
+
     return {
       "privateKey": privateKeyHex,
       "address": address.hex,
     };
   }
 
-  // 🔥 REAL BALANCE FETCH
   static Future<String> getBalance(String address) async {
     final client = Web3Client(
       "https://mainnet.infura.io/v3/339315f5c81347debe3b12374712fa4d",

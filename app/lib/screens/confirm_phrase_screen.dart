@@ -1,8 +1,12 @@
+// app/lib/screens/confirm_phrase_screen.dart
+
 import 'package:flutter/material.dart';
 import '../core/app_shell.dart';
 
 class ConfirmPhraseScreen extends StatefulWidget {
-  const ConfirmPhraseScreen({super.key});
+  final List<String> seedWords;
+
+  const ConfirmPhraseScreen({super.key, required this.seedWords});
 
   @override
   State<ConfirmPhraseScreen> createState() => _ConfirmPhraseScreenState();
@@ -10,18 +14,19 @@ class ConfirmPhraseScreen extends StatefulWidget {
 
 class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
-  final List<String> correctWords = [
-    "apple", "banana", "cat", "dog",
-    "eagle", "fish", "grape", "hat",
-    "ice", "joker", "kite", "lion"
-  ];
-
+  late List<String> correctWords;
   late List<String> shuffledWords;
+
   List<String> selectedWords = [];
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ REAL WORDS FROM PREVIOUS SCREEN
+    correctWords = widget.seedWords;
+
+    // ✅ SHUFFLED FOR UI
     shuffledWords = List.from(correctWords)..shuffle();
   }
 
@@ -46,13 +51,10 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Theme based
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
       appBar: AppBar(
         title: const Text("Confirm Phrase"),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -65,7 +67,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 Selected words
+            // 🔹 Selected Words
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -74,7 +76,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                   onTap: () => removeWord(word),
                   child: Chip(
                     label: Text(word),
-
                     backgroundColor: const Color(0xFF3375BB).withOpacity(0.1),
                     labelStyle: const TextStyle(color: Color(0xFF3375BB)),
                   ),
@@ -83,12 +84,10 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
             ),
 
             const SizedBox(height: 20),
-
             const Divider(),
-
             const SizedBox(height: 20),
 
-            // 🔹 Options
+            // 🔹 OPTIONS
             Expanded(
               child: Wrap(
                 spacing: 10,
@@ -99,7 +98,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       elevation: 1,
-                      shadowColor: Colors.black.withOpacity(0.05),
                     ),
                     child: Text(
                       word,
@@ -112,7 +110,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 Continue
             ElevatedButton(
               onPressed: isCorrect()
                   ? () {
@@ -128,7 +125,10 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
-              child: const Text("Continue"),
+              child: const Text(
+                "Continue",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),

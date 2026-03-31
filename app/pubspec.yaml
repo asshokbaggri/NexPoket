@@ -14,6 +14,11 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
+  # 🔥 REAL WALLET
+  bip39: ^1.0.6
+  web3dart: ^2.7.1
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -26,7 +31,6 @@ flutter:
   assets:
     - assets/icon.png
 
-# 🔥 App Icon Config
 flutter_launcher_icons:
   android: true
   ios: true

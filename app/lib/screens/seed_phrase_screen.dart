@@ -1,17 +1,29 @@
+// app/lib/screens/seed_phrase_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'confirm_phrase_screen.dart';
+import '../core/wallet_service.dart';
 
-class SeedPhraseScreen extends StatelessWidget {
+class SeedPhraseScreen extends StatefulWidget {
   const SeedPhraseScreen({super.key});
 
-  final List<String> _seedWords = const [
-    "apple", "banana", "cat", "dog",
-    "eagle", "fish", "grape", "hat",
-    "ice", "joker", "kite", "lion"
-  ];
+  @override
+  State<SeedPhraseScreen> createState() => _SeedPhraseScreenState();
+}
 
-  void _copyToClipboard(BuildContext context) {
+class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
+  late List<String> _seedWords;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final mnemonic = WalletService.generateMnemonic();
+    _seedWords = mnemonic.split(" ");
+  }
+
+  void _copyToClipboard() {
     Clipboard.setData(ClipboardData(text: _seedWords.join(" ")));
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -22,27 +34,21 @@ class SeedPhraseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Theme based
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
       appBar: AppBar(
         title: const Text("Your Recovery Phrase"),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-
             const Text(
               "Write down or copy these words in order and keep them safe.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
-
             const SizedBox(height: 20),
 
-            // 🔐 Seed Grid
             Expanded(
               child: GridView.builder(
                 itemCount: _seedWords.length,
@@ -57,13 +63,6 @@ class SeedPhraseScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 6,
-                        ),
-                      ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -75,9 +74,6 @@ class SeedPhraseScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 10),
-
-            // ⚠️ Warning
             const Text(
               "Never share your recovery phrase with anyone.",
               style: TextStyle(color: Colors.red),
@@ -85,25 +81,29 @@ class SeedPhraseScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 📋 Copy Button
             ElevatedButton(
-              onPressed: () => _copyToClipboard(context),
+              onPressed: _copyToClipboard,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
-              child: const Text("Copy Phrase"),
+              child: const Text(
+                "Copy Phrase",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
 
             const SizedBox(height: 10),
 
-            // 🔥 Continue Button
+            // 🔥 FIX HERE (PASS DATA)
             OutlinedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const ConfirmPhraseScreen(),
+                    builder: (_) => ConfirmPhraseScreen(
+                      seedWords: _seedWords, // ✅ PASS REAL DATA
+                    ),
                   ),
                 );
               },

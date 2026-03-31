@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 class SendScreen extends StatelessWidget {
-  const SendScreen({super.key});
+  final String walletAddress;
+
+  const SendScreen({
+    super.key,
+    required this.walletAddress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -10,27 +15,26 @@ class SendScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
-      appBar: AppBar(
-        title: const Text("Send"),
-      ),
+      appBar: AppBar(title: const Text("Send")),
 
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            // 🔹 Address Field
+            Text(
+              "From: $walletAddress",
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+
+            const SizedBox(height: 20),
+
             TextField(
               controller: addressController,
-              style: const TextStyle(color: Colors.black),
-
               decoration: InputDecoration(
                 labelText: "Recipient Address",
-
                 filled: true,
                 fillColor: Colors.grey.shade100,
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -40,18 +44,13 @@ class SendScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 🔹 Amount Field
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.black),
-
               decoration: InputDecoration(
                 labelText: "Amount",
-
                 filled: true,
                 fillColor: Colors.grey.shade100,
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -61,7 +60,6 @@ class SendScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // 🔥 Send Button
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(

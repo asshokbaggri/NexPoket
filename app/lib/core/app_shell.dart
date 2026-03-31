@@ -5,7 +5,9 @@ import '../screens/activity_screen.dart';
 import '../screens/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  final String walletAddress;
+
+  const AppShell({super.key, required this.walletAddress});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -14,12 +16,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    WalletHomeScreen(),
-    DiscoverScreen(),
-    ActivityScreen(),
-    SettingsScreen(),
-  ];
+  late final List<Widget> _screens;
 
   final List<String> _titles = [
     "Wallet",
@@ -29,9 +26,20 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+
+    _screens = [
+      WalletHomeScreen(walletAddress: widget.walletAddress), // ✅ FIX
+      const DiscoverScreen(),
+      const ActivityScreen(),
+      const SettingsScreen(),
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ LIGHT MODE (theme based)
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       appBar: AppBar(

@@ -1,12 +1,15 @@
-// app/lib/screens/confirm_phrase_screen.dart
-
 import 'package:flutter/material.dart';
 import '../core/app_shell.dart';
 
 class ConfirmPhraseScreen extends StatefulWidget {
   final List<String> seedWords;
+  final String walletAddress;
 
-  const ConfirmPhraseScreen({super.key, required this.seedWords});
+  const ConfirmPhraseScreen({
+    super.key,
+    required this.seedWords,
+    required this.walletAddress,
+  });
 
   @override
   State<ConfirmPhraseScreen> createState() => _ConfirmPhraseScreenState();
@@ -23,25 +26,25 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
   void initState() {
     super.initState();
 
-    // ✅ REAL WORDS FROM PREVIOUS SCREEN
     correctWords = widget.seedWords;
-
-    // ✅ SHUFFLED FOR UI
     shuffledWords = List.from(correctWords)..shuffle();
   }
 
   void selectWord(String word) {
-    if (!selectedWords.contains(word)) {
+    if (!selectedWords.contains(word) &&
+        selectedWords.length < correctWords.length) {
       setState(() {
         selectedWords.add(word);
       });
     }
   }
 
-  void removeWord(String word) {
-    setState(() {
-      selectedWords.remove(word);
-    });
+  void removeLastWord() {
+    if (selectedWords.isNotEmpty) {
+      setState(() {
+        selectedWords.removeLast();
+      });
+    }
   }
 
   bool isCorrect() {
@@ -52,9 +55,11 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
         title: const Text("Confirm Phrase"),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -67,37 +72,66 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 Selected Words
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: selectedWords.map((word) {
-                return GestureDetector(
-                  onTap: () => removeWord(word),
-                  child: Chip(
-                    label: Text(word),
-                    backgroundColor: const Color(0xFF3375BB).withOpacity(0.1),
-                    labelStyle: const TextStyle(color: Color(0xFF3375BB)),
+            // 🔥 NUMBERED BOX GRID
+            GridView.builder(
+              shrinkWrap: true,
+              itemCount: correctWords.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 2.5,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+
+                final word = index < selectedWords.length
+                    ? selectedWords[index]
+                    : "";
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    word.isEmpty
+                        ? "${index + 1}."
+                        : "${index + 1}. $word",
+                    style: const TextStyle(color: Colors.black),
                   ),
                 );
-              }).toList(),
+              },
             ),
 
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
 
-            // 🔹 OPTIONS
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                onPressed: removeLastWord,
+                icon: const Icon(Icons.backspace),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+            const Divider(),
+            const SizedBox(height: 10),
+
             Expanded(
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: shuffledWords.map((word) {
+
+                  final isUsed = selectedWords.contains(word);
+
                   return ElevatedButton(
-                    onPressed: () => selectWord(word),
+                    onPressed: isUsed ? null : () => selectWord(word),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      elevation: 1,
+                      backgroundColor:
+                          isUsed ? Colors.grey.shade300 : Colors.white,
                     ),
                     child: Text(
                       word,
@@ -108,15 +142,18 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
+            // 🔥 FIXED NAVIGATION
             ElevatedButton(
               onPressed: isCorrect()
                   ? () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AppShell(),
+                          builder: (_) => AppShell(
+                            walletAddress: widget.walletAddress, // ✅ FIX
+                          ),
                         ),
                       );
                     }

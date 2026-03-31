@@ -14,10 +14,17 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # 🔥 REAL WALLET
+  # 🔥 WALLET
   bip39: ^1.0.6
   web3dart: ^2.7.1
   http: ^1.2.0
+
+  # 🔥 REQUIRED (FIXED)
+  crypto: ^3.0.3
+  hex: ^0.2.0
+  qr_flutter: ^4.1.0
+  share_plus: ^7.2.1
+  
 
 dev_dependencies:
   flutter_test:

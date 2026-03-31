@@ -1,5 +1,3 @@
-// app/lib/screens/seed_phrase_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'confirm_phrase_screen.dart';
@@ -13,18 +11,30 @@ class SeedPhraseScreen extends StatefulWidget {
 }
 
 class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
+
   late List<String> _seedWords;
+  late String _mnemonic;
+  String? walletAddress;
 
   @override
   void initState() {
     super.initState();
 
-    final mnemonic = WalletService.generateMnemonic();
-    _seedWords = mnemonic.split(" ");
+    _mnemonic = WalletService.generateMnemonic();
+    _seedWords = _mnemonic.split(" ");
+
+    // 🔥 Create wallet
+    WalletService.createWallet(_mnemonic).then((wallet) {
+      setState(() {
+        walletAddress = wallet["address"];
+      });
+
+      print("Wallet Address: $walletAddress");
+    });
   }
 
   void _copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: _seedWords.join(" ")));
+    Clipboard.setData(ClipboardData(text: _mnemonic));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Recovery phrase copied")),
@@ -35,18 +45,22 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
       appBar: AppBar(
         title: const Text("Your Recovery Phrase"),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+
             const Text(
               "Write down or copy these words in order and keep them safe.",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
+
             const SizedBox(height: 20),
 
             Expanded(
@@ -95,14 +109,15 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 FIX HERE (PASS DATA)
+            // 🔥 PASS REAL DATA
             OutlinedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ConfirmPhraseScreen(
-                      seedWords: _seedWords, // ✅ PASS REAL DATA
+                      seedWords: _seedWords,
+                      walletAddress: walletAddress ?? "",
                     ),
                   ),
                 );

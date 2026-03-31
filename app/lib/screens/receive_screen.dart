@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ReceiveScreen extends StatelessWidget {
-  const ReceiveScreen({super.key});
+  final String walletAddress;
 
-  final String walletAddress =
-      "0xA1B2C3D4E5F678901234567890ABCDEF12345678";
+  const ReceiveScreen({super.key, required this.walletAddress});
 
   void copyAddress(BuildContext context) {
     Clipboard.setData(ClipboardData(text: walletAddress));
@@ -15,8 +16,14 @@ class ReceiveScreen extends StatelessWidget {
     );
   }
 
+  void shareAddress() {
+    Share.share(walletAddress);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
@@ -31,45 +38,72 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 🔳 QR Card
+            // 🔥 REAL QR CODE
             Container(
-              height: 200,
-              width: 200,
-
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? Colors.white : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: QrImageView(
+                data: walletAddress,
+                version: QrVersions.auto,
+                size: 200,
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // 🔹 ADDRESS BOX
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900 : Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                walletAddress,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
 
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
+            const SizedBox(height: 20),
+
+            // 🔥 ACTION BUTTONS
+            Row(
+              children: [
+
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => copyAddress(context),
+                    icon: const Icon(Icons.copy),
+                    label: const Text("Copy"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3375BB),
+                    ),
                   ),
-                ],
-              ),
+                ),
 
-              alignment: Alignment.center,
-              child: const Text("QR"),
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: shareAddress,
+                    icon: const Icon(Icons.share),
+                    label: const Text("Share"),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 20),
 
-            // 🔹 Address
-            Text(
-              walletAddress,
+            const Text(
+              "Only send supported assets to this address.",
+              style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 🔥 Copy Button
-            ElevatedButton(
-              onPressed: () => copyAddress(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3375BB),
-              ),
-              child: const Text("Copy Address"),
             ),
           ],
         ),

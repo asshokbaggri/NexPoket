@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
 
 class WalletHomeScreen extends StatelessWidget {
-  const WalletHomeScreen({super.key});
+  final String walletAddress;
+
+  const WalletHomeScreen({super.key, required this.walletAddress});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      // ✅ Theme based background
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       body: SafeArea(
@@ -18,26 +22,73 @@ class WalletHomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              // 🔥 Balance Section
               const Text(
-                "Total Balance",
-                style: TextStyle(color: Colors.grey),
+                "Wallet",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
 
-              const Text(
-                "\$12,450.00",
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+              // 🔥 BALANCE CARD
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3375BB),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Total Balance", style: TextStyle(color: Colors.white70)),
+                    SizedBox(height: 8),
+                    Text(
+                      "0.00 ETH",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🔥 ADDRESS
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade900 : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        walletAddress,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: walletAddress));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Address copied")),
+                        );
+                      },
+                    )
+                  ],
                 ),
               ),
 
               const SizedBox(height: 25),
 
-              // 🔹 Actions
+              // 🔹 ACTIONS
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -50,7 +101,9 @@ class WalletHomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const SendScreen(),
+                          builder: (_) => SendScreen(
+                            walletAddress: walletAddress, // ✅ FIX
+                          ),
                         ),
                       );
                     },
@@ -64,7 +117,9 @@ class WalletHomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ReceiveScreen(),
+                          builder: (_) => ReceiveScreen(
+                            walletAddress: walletAddress, // ✅ FIX
+                          ),
                         ),
                       );
                     },
@@ -76,9 +131,7 @@ class WalletHomeScreen extends StatelessWidget {
                     "Buy",
                     () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Buy feature coming soon"),
-                        ),
+                        const SnackBar(content: Text("Coming soon")),
                       );
                     },
                   ),
@@ -89,23 +142,17 @@ class WalletHomeScreen extends StatelessWidget {
 
               const Text(
                 "Your Assets",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 15),
 
-              // 🔥 Token List
               Expanded(
-                child: ListView(
-                  children: const [
-                    _TokenTile("Bitcoin", "BTC", "0.25", "\$7,500"),
-                    _TokenTile("Ethereum", "ETH", "2.5", "\$4,200"),
-                    _TokenTile("BNB", "BNB", "10", "\$750"),
-                  ],
+                child: Center(
+                  child: Text(
+                    "No assets yet",
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
                 ),
               ),
             ],
@@ -116,7 +163,7 @@ class WalletHomeScreen extends StatelessWidget {
   }
 }
 
-// 🔹 Action Button (Modern Style)
+// 🔹 ACTION BUTTON
 Widget _actionButton(
   BuildContext context,
   IconData icon,
@@ -136,80 +183,8 @@ Widget _actionButton(
           child: Icon(icon, color: const Color(0xFF3375BB)),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.black),
-        ),
+        Text(label),
       ],
     ),
   );
-}
-
-// 🔹 Token Tile (Card UI)
-class _TokenTile extends StatelessWidget {
-  final String name, symbol, amount, value;
-
-  const _TokenTile(this.name, this.symbol, this.amount, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-
-        // 🔥 Soft shadow (premium feel)
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-
-          const CircleAvatar(
-            backgroundColor: Color(0xFF3375BB),
-            child: Icon(Icons.currency_bitcoin, color: Colors.white),
-          ),
-
-          const SizedBox(width: 12),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(color: Colors.black),
-              ),
-              Text(
-                symbol,
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-
-          const Spacer(),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                amount,
-                style: const TextStyle(color: Colors.black),
-              ),
-              Text(
-                value,
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }

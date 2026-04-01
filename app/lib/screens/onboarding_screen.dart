@@ -53,22 +53,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      // ✅ Theme based
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       body: SafeArea(
         child: Column(
           children: [
 
-            // 🔹 Skip
+            // 🔹 Skip (FIXED)
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: _goToWalletSetup,
                 child: const Text(
                   "Skip",
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: Color(0xFF3375BB), // ✅ better visibility
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),
@@ -98,10 +102,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(
                           _pages[index]["title"]!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: isDark ? Colors.white : Colors.black, // ✅ FIX
                           ),
                         ),
 
@@ -110,9 +114,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(
                           _pages[index]["desc"]!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600, // ✅ better contrast
                           ),
                         ),
                       ],
@@ -122,7 +128,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // 🔹 Dots
+            // 🔹 Dots (FIXED)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -135,7 +141,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   decoration: BoxDecoration(
                     color: _currentIndex == index
                         ? const Color(0xFF3375BB)
-                        : Colors.grey.shade300,
+                        : (isDark
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400), // ✅ FIX
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -144,13 +152,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 Button
+            // 🔹 Button (FIXED)
             Padding(
               padding: const EdgeInsets.all(20),
               child: ElevatedButton(
                 onPressed: _nextPage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3375BB),
+                  foregroundColor: Colors.white, // ✅ FIX (important)
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 child: Text(

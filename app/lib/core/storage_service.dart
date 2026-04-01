@@ -18,4 +18,9 @@ class StorageService {
   static Future<String?> getAddress() async {
     return await _storage.read(key: "wallet_address");
   }
+
+  // 🔥 NEW (future logout)
+  static Future<void> clearAll() async {
+    await _storage.deleteAll();
+  }
 }

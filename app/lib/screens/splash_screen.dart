@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../core/storage_service.dart';
+import '../core/app_shell.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,18 +16,33 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _initApp();
+  }
 
-    // ⏱ Safe navigation
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
+  Future<void> _initApp() async {
+    await Future.delayed(const Duration(seconds: 2));
 
+    if (!mounted) return;
+
+    final address = await StorageService.getAddress();
+
+    if (address != null && address.isNotEmpty) {
+      // ✅ AUTO LOGIN
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AppShell(walletAddress: address),
+        ),
+      );
+    } else {
+      // ❌ FIRST TIME USER
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => const OnboardingScreen(),
         ),
       );
-    });
+    }
   }
 
   @override
@@ -34,12 +51,11 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
 
-        // 🔥 Premium gradient
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
               Color(0xFF3375BB),
-              Color(0xFF5FA8FF),
+              Color(0xFF4A90E2), // smoother gradient
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -50,7 +66,6 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
 
-            // 🔹 Logo
             Image.asset(
               'assets/icon.png',
               width: 110,
@@ -58,7 +73,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 App Name
             const Text(
               "NexPoket",
               style: TextStyle(
@@ -71,13 +85,20 @@ class _SplashScreenState extends State<SplashScreen> {
 
             const SizedBox(height: 8),
 
-            // 🔹 Tagline
             const Text(
               "Smart Digital Wallet",
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
               ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // 🔄 LOADING INDICATOR (premium feel)
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
             ),
           ],
         ),

@@ -25,7 +25,7 @@ class WalletService {
     final credentials = EthPrivateKey.fromHex(privateKeyHex);
     final address = await credentials.extractAddress();
 
-    // 🔐 SAVE SECURELY
+    // 🔐 Secure Save
     await StorageService.savePrivateKey(privateKeyHex);
     await StorageService.saveAddress(address.hex);
 

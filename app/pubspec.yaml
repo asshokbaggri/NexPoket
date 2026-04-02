@@ -43,6 +43,7 @@ flutter:
 
   assets:
     - assets/icon.png
+    - assets/bip39_english.txt
 
 flutter_launcher_icons:
   android: true

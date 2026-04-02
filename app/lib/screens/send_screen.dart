@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:web3dart/web3dart.dart';
+import 'package:http/http.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-class SendScreen extends StatelessWidget {
+import '../core/storage_service.dart';
+
+class SendScreen extends StatefulWidget {
   final String walletAddress;
 
   const SendScreen({
@@ -9,9 +14,117 @@ class SendScreen extends StatelessWidget {
   });
 
   @override
+  State<SendScreen> createState() => _SendScreenState();
+}
+
+class _SendScreenState extends State<SendScreen> {
+
+  final addressController = TextEditingController();
+  final amountController = TextEditingController();
+
+  bool isLoading = false;
+
+  final String rpcUrl =
+      "https://mainnet.infura.io/v3/339315f5c81347debe3b12374712fa4d";
+
+  Future<void> sendTransaction() async {
+    final toAddress = addressController.text.trim();
+    final amount = amountController.text.trim();
+
+    if (toAddress.isEmpty || amount.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Fill all fields")),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      final privateKey = await StorageService.getPrivateKey();
+      if (privateKey == null) throw Exception("Private key not found");
+
+      final client = Web3Client(rpcUrl, Client());
+      final credentials = EthPrivateKey.fromHex(privateKey);
+      final ethAddress = EthereumAddress.fromHex(toAddress);
+
+      // 🔥 GAS PRICE
+      final gasPrice = await client.getGasPrice();
+
+      // 🔥 GAS LIMIT FIX (BigInt)
+      BigInt gasLimit;
+
+      try {
+        gasLimit = await client.estimateGas(
+          sender: credentials.address,
+          to: ethAddress,
+          value: EtherAmount.fromUnitAndValue(
+            EtherUnit.ether,
+            double.parse(amount),
+          ),
+        );
+      } catch (e) {
+        gasLimit = BigInt.from(21000);
+      }
+
+      final txHash = await client.sendTransaction(
+        credentials,
+        Transaction(
+          to: ethAddress,
+          value: EtherAmount.fromUnitAndValue(
+            EtherUnit.ether,
+            double.parse(amount),
+          ),
+          gasPrice: gasPrice,
+          maxGas: gasLimit.toInt(), // ✅ FIX
+        ),
+        chainId: 1,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("TX Sent: $txHash")),
+      );
+
+      Navigator.pop(context);
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+
+    setState(() => isLoading = false);
+  }
+
+  // 🔥 QR SCANNER FIXED
+  void openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text("Scan QR")),
+          body: MobileScanner(
+            onDetect: (barcodeCapture) {
+              final barcodes = barcodeCapture.barcodes;
+
+              if (barcodes.isNotEmpty) {
+                final code = barcodes.first.rawValue;
+
+                if (code != null) {
+                  addressController.text = code;
+                  Navigator.pop(context);
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final addressController = TextEditingController();
-    final amountController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -22,19 +135,48 @@ class SendScreen extends StatelessWidget {
         child: Column(
           children: [
 
-            Text(
-              "From: $walletAddress",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            // 🔹 FROM ADDRESS
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.walletAddress,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 20),
 
+            // 🔹 ADDRESS + QR
             TextField(
               controller: addressController,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
               decoration: InputDecoration(
                 labelText: "Recipient Address",
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor:
+                    isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  onPressed: openScanner,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -44,13 +186,18 @@ class SendScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
+            // 🔹 AMOUNT
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
               decoration: InputDecoration(
-                labelText: "Amount",
+                labelText: "Amount (ETH)",
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor:
+                    isDark ? Colors.grey.shade900 : Colors.grey.shade100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -60,17 +207,17 @@ class SendScreen extends StatelessWidget {
 
             const Spacer(),
 
+            // 🔥 SEND BUTTON
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Transaction sent (demo)")),
-                );
-              },
+              onPressed: isLoading ? null : sendTransaction,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
-                minimumSize: const Size(double.infinity, 50),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 55),
               ),
-              child: const Text("Send"),
+              child: isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text("Send Transaction"),
             ),
           ],
         ),

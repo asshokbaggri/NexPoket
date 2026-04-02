@@ -18,6 +18,7 @@ dependencies:
   bip39: ^1.0.6
   web3dart: ^2.7.1
   http: ^1.2.0
+  bip32: ^2.0.0
 
   # 🔥 REQUIRED (FIXED)
   crypto: ^3.0.3

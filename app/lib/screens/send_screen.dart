@@ -1,3 +1,5 @@
+// app/lib/screens/send_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
@@ -23,6 +25,7 @@ class _SendScreenState extends State<SendScreen> {
   final amountController = TextEditingController();
 
   bool isLoading = false;
+  bool isScanning = false; // 🔥 FIX
 
   final String rpcUrl =
       "https://mainnet.infura.io/v3/339315f5c81347debe3b12374712fa4d";
@@ -46,37 +49,66 @@ class _SendScreenState extends State<SendScreen> {
 
       final client = Web3Client(rpcUrl, Client());
       final credentials = EthPrivateKey.fromHex(privateKey);
-      final ethAddress = EthereumAddress.fromHex(toAddress);
+      final senderAddress = await credentials.extractAddress();
+      final receiver = EthereumAddress.fromHex(toAddress);
+
+      final amountEth = double.parse(amount);
+
+      // 🔥 GET BALANCE
+      final balance = await client.getBalance(senderAddress);
+
+      final balanceEth =
+          balance.getValueInUnit(EtherUnit.ether);
 
       // 🔥 GAS PRICE
       final gasPrice = await client.getGasPrice();
 
-      // 🔥 GAS LIMIT FIX (BigInt)
+      // 🔥 ESTIMATE GAS
       BigInt gasLimit;
-
       try {
         gasLimit = await client.estimateGas(
-          sender: credentials.address,
-          to: ethAddress,
+          sender: senderAddress,
+          to: receiver,
           value: EtherAmount.fromUnitAndValue(
             EtherUnit.ether,
-            double.parse(amount),
+            amountEth,
           ),
         );
       } catch (e) {
         gasLimit = BigInt.from(21000);
       }
 
+      // 🔥 GAS COST
+      final gasCostWei = gasPrice.getInWei * gasLimit;
+      final gasCostEth =
+          EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
+
+      final totalNeeded = amountEth + gasCostEth;
+
+      // ❌ INSUFFICIENT BALANCE CHECK
+      if (balanceEth < totalNeeded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Insufficient balance.\nNeed: ${totalNeeded.toStringAsFixed(6)} ETH\nAvailable: ${balanceEth.toStringAsFixed(6)} ETH",
+            ),
+          ),
+        );
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // 🚀 SEND TX
       final txHash = await client.sendTransaction(
         credentials,
         Transaction(
-          to: ethAddress,
+          to: receiver,
           value: EtherAmount.fromUnitAndValue(
             EtherUnit.ether,
-            double.parse(amount),
+            amountEth,
           ),
           gasPrice: gasPrice,
-          maxGas: gasLimit.toInt(), // ✅ FIX
+          maxGas: gasLimit.toInt(),
         ),
         chainId: 1,
       );
@@ -96,8 +128,10 @@ class _SendScreenState extends State<SendScreen> {
     setState(() => isLoading = false);
   }
 
-  // 🔥 QR SCANNER FIXED
+  // 🔥 FIXED QR SCANNER
   void openScanner() {
+    isScanning = false;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -105,13 +139,18 @@ class _SendScreenState extends State<SendScreen> {
           appBar: AppBar(title: const Text("Scan QR")),
           body: MobileScanner(
             onDetect: (barcodeCapture) {
+              if (isScanning) return; // 🔥 prevent multiple calls
+
               final barcodes = barcodeCapture.barcodes;
 
               if (barcodes.isNotEmpty) {
                 final code = barcodes.first.rawValue;
 
                 if (code != null) {
+                  isScanning = true;
+
                   addressController.text = code;
+
                   Navigator.pop(context);
                 }
               }
@@ -162,7 +201,7 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 ADDRESS + QR
+            // 🔹 ADDRESS
             TextField(
               controller: addressController,
               style: TextStyle(

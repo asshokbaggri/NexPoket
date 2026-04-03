@@ -1,5 +1,3 @@
-// app/lib/screens/send_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
@@ -25,18 +23,28 @@ class _SendScreenState extends State<SendScreen> {
   final amountController = TextEditingController();
 
   bool isLoading = false;
-  bool isScanning = false; // 🔥 FIX
+  bool isScanning = false;
 
   final String rpcUrl =
       "https://mainnet.infura.io/v3/339315f5c81347debe3b12374712fa4d";
 
   Future<void> sendTransaction() async {
     final toAddress = addressController.text.trim();
-    final amount = amountController.text.trim();
+    final amountText = amountController.text.trim();
 
-    if (toAddress.isEmpty || amount.isEmpty) {
+    if (toAddress.isEmpty || amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Fill all fields")),
+      );
+      return;
+    }
+
+    double amountEth;
+    try {
+      amountEth = double.parse(amountText);
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid amount")),
       );
       return;
     }
@@ -44,26 +52,34 @@ class _SendScreenState extends State<SendScreen> {
     setState(() => isLoading = true);
 
     try {
-      final privateKey = await StorageService.getPrivateKey();
-      if (privateKey == null) throw Exception("Private key not found");
+      // 🔥 FIXED
+      final privateKey =
+          await StorageService.getPrivateKey(widget.walletAddress);
+
+      if (privateKey == null) {
+        throw Exception("Wallet not found");
+      }
 
       final client = Web3Client(rpcUrl, Client());
       final credentials = EthPrivateKey.fromHex(privateKey);
+
       final senderAddress = await credentials.extractAddress();
-      final receiver = EthereumAddress.fromHex(toAddress);
 
-      final amountEth = double.parse(amount);
+      EthereumAddress receiver;
+      try {
+        receiver = EthereumAddress.fromHex(toAddress);
+      } catch (_) {
+        throw Exception("Invalid recipient address");
+      }
 
-      // 🔥 GET BALANCE
+      // 🔥 BALANCE
       final balance = await client.getBalance(senderAddress);
-
       final balanceEth =
           balance.getValueInUnit(EtherUnit.ether);
 
-      // 🔥 GAS PRICE
+      // 🔥 GAS
       final gasPrice = await client.getGasPrice();
 
-      // 🔥 ESTIMATE GAS
       BigInt gasLimit;
       try {
         gasLimit = await client.estimateGas(
@@ -74,23 +90,21 @@ class _SendScreenState extends State<SendScreen> {
             amountEth,
           ),
         );
-      } catch (e) {
+      } catch (_) {
         gasLimit = BigInt.from(21000);
       }
 
-      // 🔥 GAS COST
       final gasCostWei = gasPrice.getInWei * gasLimit;
       final gasCostEth =
           EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
 
       final totalNeeded = amountEth + gasCostEth;
 
-      // ❌ INSUFFICIENT BALANCE CHECK
       if (balanceEth < totalNeeded) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Insufficient balance.\nNeed: ${totalNeeded.toStringAsFixed(6)} ETH\nAvailable: ${balanceEth.toStringAsFixed(6)} ETH",
+              "Insufficient Balance\nNeed: ${totalNeeded.toStringAsFixed(6)} ETH\nHave: ${balanceEth.toStringAsFixed(6)} ETH",
             ),
           ),
         );
@@ -98,7 +112,7 @@ class _SendScreenState extends State<SendScreen> {
         return;
       }
 
-      // 🚀 SEND TX
+      // 🚀 SEND
       final txHash = await client.sendTransaction(
         credentials,
         Transaction(
@@ -121,14 +135,13 @@ class _SendScreenState extends State<SendScreen> {
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
+        SnackBar(content: Text(e.toString())),
       );
     }
 
     setState(() => isLoading = false);
   }
 
-  // 🔥 FIXED QR SCANNER
   void openScanner() {
     isScanning = false;
 
@@ -139,7 +152,7 @@ class _SendScreenState extends State<SendScreen> {
           appBar: AppBar(title: const Text("Scan QR")),
           body: MobileScanner(
             onDetect: (barcodeCapture) {
-              if (isScanning) return; // 🔥 prevent multiple calls
+              if (isScanning) return;
 
               final barcodes = barcodeCapture.barcodes;
 
@@ -151,7 +164,9 @@ class _SendScreenState extends State<SendScreen> {
 
                   addressController.text = code;
 
-                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    Navigator.pop(context);
+                  });
                 }
               }
             },
@@ -163,6 +178,7 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -174,7 +190,7 @@ class _SendScreenState extends State<SendScreen> {
         child: Column(
           children: [
 
-            // 🔹 FROM ADDRESS
+            // 🔹 FROM
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -188,11 +204,11 @@ class _SendScreenState extends State<SendScreen> {
                   Expanded(
                     child: Text(
                       widget.walletAddress,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.white : Colors.black,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -201,7 +217,6 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 ADDRESS
             TextField(
               controller: addressController,
               style: TextStyle(
@@ -225,7 +240,6 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 AMOUNT
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
@@ -246,7 +260,6 @@ class _SendScreenState extends State<SendScreen> {
 
             const Spacer(),
 
-            // 🔥 SEND BUTTON
             ElevatedButton(
               onPressed: isLoading ? null : sendTransaction,
               style: ElevatedButton.styleFrom(

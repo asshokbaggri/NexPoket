@@ -24,18 +24,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    final address = await StorageService.getAddress();
+    final wallet = await StorageService.getSelectedWallet();
 
-    if (address != null && address.isNotEmpty) {
-      // ✅ AUTO LOGIN
+    if (wallet != null && wallet["address"] != null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => AppShell(walletAddress: address),
+          builder: (_) => AppShell(
+            walletAddress: wallet["address"],
+          ),
         ),
       );
     } else {
-      // ❌ FIRST TIME USER
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: LinearGradient(
             colors: [
               Color(0xFF3375BB),
-              Color(0xFF4A90E2), // smoother gradient
+              Color(0xFF4A90E2),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -95,7 +95,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
             const SizedBox(height: 30),
 
-            // 🔄 LOADING INDICATOR (premium feel)
             const CircularProgressIndicator(
               color: Colors.white,
               strokeWidth: 2,

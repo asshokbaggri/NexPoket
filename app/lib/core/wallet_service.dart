@@ -27,26 +27,22 @@ class WalletService {
   static Future<Map<String, String>> createWallet(String mnemonic) async {
 
     final seed = bip39.mnemonicToSeed(mnemonic);
-
     final root = bip32.BIP32.fromSeed(seed);
     final child = root.derivePath("m/44'/60'/0'/0/0");
 
-    final privateKeyBytes = child.privateKey;
-    if (privateKeyBytes == null) {
-      throw Exception("Private key generation failed");
-    }
-
+    final privateKeyBytes = child.privateKey!;
     final privateKeyHex = HEX.encode(privateKeyBytes);
 
     final credentials = EthPrivateKey.fromHex(privateKeyHex);
     final address = await credentials.extractAddress();
 
-    // 🔐 NOW ENCRYPTED STORAGE
-    await StorageService.savePrivateKey(privateKeyHex);
-    await StorageService.saveAddress(address.hex);
+    await StorageService.saveWallet(
+      name: "Wallet ${DateTime.now().millisecondsSinceEpoch}",
+      privateKey: privateKeyHex,
+      address: address.hex,
+    );
 
     return {
-      "privateKey": privateKeyHex,
       "address": address.hex,
     };
   }

@@ -1,19 +1,213 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/storage_service.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
+import 'seed_phrase_screen.dart';
+import 'import_wallet_screen.dart';
 
-class WalletHomeScreen extends StatelessWidget {
+class WalletHomeScreen extends StatefulWidget {
   final String walletAddress;
 
   const WalletHomeScreen({super.key, required this.walletAddress});
 
   @override
+  State<WalletHomeScreen> createState() => _WalletHomeScreenState();
+}
+
+class _WalletHomeScreenState extends State<WalletHomeScreen> {
+
+  String walletName = "Wallet";
+  List<Map<String, dynamic>> wallets = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadWallets();
+  }
+
+  Future<void> loadWallets() async {
+    final data = await StorageService.getWallets();
+
+    if (data.isEmpty) return;
+
+    // 🔥 DEFAULT NAME FIX
+    for (int i = 0; i < data.length; i++) {
+      if (data[i]["name"] == null || data[i]["name"].isEmpty) {
+        data[i]["name"] = "Wallet ${i + 1}";
+      }
+    }
+
+    final current = data.firstWhere(
+      (w) => w["address"] == widget.walletAddress,
+      orElse: () => data.first,
+    );
+
+    setState(() {
+      wallets = data;
+      walletName = current["name"];
+    });
+  }
+
+  void copyAddress() {
+    Clipboard.setData(ClipboardData(text: widget.walletAddress));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Address Copied ✔")),
+    );
+  }
+
+  void switchWallet(String address) async {
+    await StorageService.setSelectedWallet(address);
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WalletHomeScreen(walletAddress: address),
+      ),
+    );
+  }
+
+  // 🔥 ADD WALLET POPUP
+  void showAddWalletPopup() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text("Create New Wallet"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SeedPhraseScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.import_export),
+                title: const Text("Import Wallet"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ImportWalletScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 🔥 RENAME POPUP
+  void renameWallet(String address, String currentName) {
+    final controller = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Rename Wallet"),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await StorageService.renameWallet(
+                address,
+                controller.text.trim(),
+              );
+
+              Navigator.pop(context);
+              loadWallets();
+            },
+            child: const Text("Save"),
+          )
+        ],
+      ),
+    );
+  }
+
+  // 🔥 WALLET LIST (IMPROVED)
+  void showWalletList() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      builder: (_) {
+        return ListView(
+          padding: const EdgeInsets.all(10),
+          children: wallets.map((w) {
+            final isActive = w["address"] == widget.walletAddress;
+
+            return ListTile(
+              title: Text(
+                w["name"],
+                style: TextStyle(
+                  fontWeight:
+                      isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(
+                w["address"],
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: isActive
+                  ? const Icon(Icons.check, color: Color(0xFF3375BB))
+                  : null,
+
+              onTap: () => switchWallet(w["address"]),
+
+              // 🔥 LONG PRESS = RENAME
+              onLongPress: () =>
+                  renameWallet(w["address"], w["name"]),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
+      appBar: AppBar(
+        title: GestureDetector(
+          onTap: showWalletList,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(walletName),
+              const SizedBox(width: 5),
+              const Icon(Icons.keyboard_arrow_down),
+            ],
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: showAddWalletPopup,
+          ),
+        ],
+      ),
 
       body: SafeArea(
         child: Padding(
@@ -21,13 +215,6 @@ class WalletHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              const Text(
-                "Wallet",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 20),
 
               // 🔥 BALANCE CARD
               Container(
@@ -68,19 +255,20 @@ class WalletHomeScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        walletAddress,
-                        style: const TextStyle(fontSize: 12),
+                        widget.walletAddress,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.copy),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: walletAddress));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Address copied")),
-                        );
-                      },
+                    GestureDetector(
+                      onTap: copyAddress,
+                      child: const Icon(
+                        Icons.copy,
+                        color: Color(0xFF3375BB),
+                      ),
                     )
                   ],
                 ),
@@ -88,7 +276,6 @@ class WalletHomeScreen extends StatelessWidget {
 
               const SizedBox(height: 25),
 
-              // 🔹 ACTIONS
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -102,7 +289,7 @@ class WalletHomeScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => SendScreen(
-                            walletAddress: walletAddress, // ✅ FIX
+                            walletAddress: widget.walletAddress,
                           ),
                         ),
                       );
@@ -118,7 +305,7 @@ class WalletHomeScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => ReceiveScreen(
-                            walletAddress: walletAddress, // ✅ FIX
+                            walletAddress: widget.walletAddress,
                           ),
                         ),
                       );
@@ -129,11 +316,7 @@ class WalletHomeScreen extends StatelessWidget {
                     context,
                     Icons.add,
                     "Buy",
-                    () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Coming soon")),
-                      );
-                    },
+                    () {},
                   ),
                 ],
               ),

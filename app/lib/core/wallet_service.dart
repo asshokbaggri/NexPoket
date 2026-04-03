@@ -1,5 +1,3 @@
-// app/lib/core/wallet_service.dart
-
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:web3dart/web3dart.dart';
 import 'package:bip32/bip32.dart' as bip32;
@@ -10,12 +8,20 @@ import 'storage_service.dart';
 
 class WalletService {
 
+  // 🔥 CLEAN MNEMONIC (avoid ugly repetition UX)
   static String generateMnemonic() {
     String mnemonic;
 
     do {
       mnemonic = bip39.generateMnemonic();
-    } while (!bip39.validateMnemonic(mnemonic));
+
+      final words = mnemonic.split(" ");
+      final unique = words.toSet().length;
+
+      // ❌ avoid too many duplicates (UX fix)
+      if (unique >= 10) break;
+
+    } while (true);
 
     return mnemonic;
   }
@@ -36,8 +42,12 @@ class WalletService {
     final credentials = EthPrivateKey.fromHex(privateKeyHex);
     final address = await credentials.extractAddress();
 
+    // 🔥 AUTO NAME FIX (Wallet 1, 2, 3)
+    final wallets = await StorageService.getWallets();
+    final walletNumber = wallets.length + 1;
+
     await StorageService.saveWallet(
-      name: "Wallet ${DateTime.now().millisecondsSinceEpoch}",
+      name: "Wallet $walletNumber",
       privateKey: privateKeyHex,
       address: address.hex,
     );

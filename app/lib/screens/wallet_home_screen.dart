@@ -1,3 +1,5 @@
+// FULL FILE (NO SHORTCUTS)
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/storage_service.dart';
@@ -18,11 +20,13 @@ class WalletHomeScreen extends StatefulWidget {
 class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
   String walletName = "Wallet";
+  String currentAddress = "";
   List<Map<String, dynamic>> wallets = [];
 
   @override
   void initState() {
     super.initState();
+    currentAddress = widget.walletAddress;
     loadWallets();
   }
 
@@ -31,7 +35,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
     if (data.isEmpty) return;
 
-    // 🔥 DEFAULT NAME FIX
+    // 🔥 ENSURE CLEAN NAMES
     for (int i = 0; i < data.length; i++) {
       if (data[i]["name"] == null || data[i]["name"].isEmpty) {
         data[i]["name"] = "Wallet ${i + 1}";
@@ -39,38 +43,37 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     }
 
     final current = data.firstWhere(
-      (w) => w["address"] == widget.walletAddress,
+      (w) => w["address"] == currentAddress,
       orElse: () => data.first,
     );
 
     setState(() {
       wallets = data;
       walletName = current["name"];
+      currentAddress = current["address"];
     });
   }
 
   void copyAddress() {
-    Clipboard.setData(ClipboardData(text: widget.walletAddress));
+    Clipboard.setData(ClipboardData(text: currentAddress));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Address Copied ✔")),
     );
   }
 
+  // ✅ SMOOTH SWITCH (NO NAVIGATION)
   void switchWallet(String address) async {
     await StorageService.setSelectedWallet(address);
 
-    if (!mounted) return;
+    setState(() {
+      currentAddress = address;
+    });
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => WalletHomeScreen(walletAddress: address),
-      ),
-    );
+    loadWallets();
+    Navigator.pop(context); // close sheet
   }
 
-  // 🔥 ADD WALLET POPUP
   void showAddWalletPopup() {
     showModalBottomSheet(
       context: context,
@@ -115,7 +118,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 RENAME POPUP
   void renameWallet(String address, String currentName) {
     final controller = TextEditingController(text: currentName);
 
@@ -131,7 +133,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                 address,
                 controller.text.trim(),
               );
-
               Navigator.pop(context);
               loadWallets();
             },
@@ -142,16 +143,15 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 WALLET LIST (IMPROVED)
   void showWalletList() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (_) {
         return ListView(
           padding: const EdgeInsets.all(10),
           children: wallets.map((w) {
-            final isActive = w["address"] == widget.walletAddress;
+
+            final isActive = w["address"] == currentAddress;
 
             return ListTile(
               title: Text(
@@ -168,13 +168,11 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               trailing: isActive
                   ? const Icon(Icons.check, color: Color(0xFF3375BB))
                   : null,
-
               onTap: () => switchWallet(w["address"]),
-
-              // 🔥 LONG PRESS = RENAME
               onLongPress: () =>
                   renameWallet(w["address"], w["name"]),
             );
+
           }).toList(),
         );
       },
@@ -187,8 +185,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
       appBar: AppBar(
         title: GestureDetector(
           onTap: showWalletList,
@@ -209,150 +205,83 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         ],
       ),
 
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
 
-              // 🔥 BALANCE CARD
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3375BB),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Total Balance", style: TextStyle(color: Colors.white70)),
-                    SizedBox(height: 8),
-                    Text(
-                      "0.00 ETH",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3375BB),
+                borderRadius: BorderRadius.circular(16),
               ),
-
-              const SizedBox(height: 20),
-
-              // 🔥 ADDRESS
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade900 : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.walletAddress,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: copyAddress,
-                      child: const Icon(
-                        Icons.copy,
-                        color: Color(0xFF3375BB),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  _actionButton(
-                    context,
-                    Icons.send,
-                    "Send",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SendScreen(
-                            walletAddress: widget.walletAddress,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _actionButton(
-                    context,
-                    Icons.download,
-                    "Receive",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReceiveScreen(
-                            walletAddress: widget.walletAddress,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _actionButton(
-                    context,
-                    Icons.add,
-                    "Buy",
-                    () {},
-                  ),
+                  Text("Total Balance", style: TextStyle(color: Colors.white70)),
+                  SizedBox(height: 8),
+                  Text("0.00 ETH",
+                      style: TextStyle(fontSize: 28, color: Colors.white)),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
-              const Text(
-                "Your Assets",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900 : Colors.white,
+                borderRadius: BorderRadius.circular(12),
               ),
-
-              const SizedBox(height: 15),
-
-              Expanded(
-                child: Center(
-                  child: Text(
-                    "No assets yet",
-                    style: TextStyle(color: Colors.grey.shade500),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      currentAddress,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
+                  GestureDetector(
+                    onTap: copyAddress,
+                    child: const Icon(Icons.copy, color: Color(0xFF3375BB)),
+                  )
+                ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 25),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _actionButton(context, Icons.send, "Send", () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SendScreen(walletAddress: currentAddress),
+                    ),
+                  );
+                }),
+                _actionButton(context, Icons.download, "Receive", () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReceiveScreen(walletAddress: currentAddress),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// 🔹 ACTION BUTTON
-Widget _actionButton(
-  BuildContext context,
-  IconData icon,
-  String label,
-  VoidCallback onTap,
-) {
+Widget _actionButton(BuildContext context, IconData icon, String label, VoidCallback onTap) {
   return GestureDetector(
     onTap: onTap,
     child: Column(

@@ -31,7 +31,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
     correctWords = widget.seedWords;
 
-    // 🔥 FIX: index-based shuffle (duplicate safe)
     shuffledWords = List.generate(correctWords.length, (i) {
       return {"word": correctWords[i], "used": false};
     })..shuffle();
@@ -53,7 +52,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
     final lastWord = selectedWords.removeLast();
 
-    // 🔥 find first used match
     for (var item in shuffledWords) {
       if (item["word"] == lastWord && item["used"] == true) {
         item["used"] = false;
@@ -73,13 +71,15 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
+    // 🔥 FINAL FIX (NO BACK STACK)
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (_) => AppShell(
           walletAddress: wallet["address"]!,
         ),
       ),
+      (route) => false, // 🔥 REMOVE ALL PREVIOUS SCREENS
     );
   }
 

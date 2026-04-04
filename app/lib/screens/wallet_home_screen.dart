@@ -35,9 +35,11 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
     if (data.isEmpty) return;
 
-    // 🔥 CLEAN NAMING SYSTEM
+    // ✅ FIX: Only assign default name if empty
     for (int i = 0; i < data.length; i++) {
-      data[i]["name"] = "Wallet ${i + 1}";
+      if (data[i]["name"] == null || data[i]["name"].toString().trim().isEmpty) {
+        data[i]["name"] = "Wallet ${i + 1}";
+      }
     }
 
     final current = data.firstWhere(
@@ -60,7 +62,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 FIXED (NO NAVIGATION)
   void switchWallet(String address) async {
     await StorageService.setSelectedWallet(address);
 
@@ -68,12 +69,11 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       currentAddress = address;
     });
 
-    loadWallets();
+    await loadWallets();
 
-    Navigator.pop(context); // close bottom sheet
+    if (mounted) Navigator.pop(context);
   }
 
-  // 🔥 ADD WALLET POPUP
   void showAddWalletPopup() {
     showModalBottomSheet(
       context: context,
@@ -118,7 +118,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 RENAME
   void renameWallet(String address, String currentName) {
     final controller = TextEditingController(text: currentName);
 
@@ -126,17 +125,24 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Rename Wallet"),
-        content: TextField(controller: controller),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: "Enter wallet name",
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () async {
-              await StorageService.renameWallet(
-                address,
-                controller.text.trim(),
-              );
+              final newName = controller.text.trim();
+
+              if (newName.isEmpty) return;
+
+              await StorageService.renameWallet(address, newName);
 
               Navigator.pop(context);
-              loadWallets();
+
+              await loadWallets(); // 🔥 reload AFTER save
             },
             child: const Text("Save"),
           )
@@ -145,7 +151,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 WALLET LIST
   void showWalletList() {
     showModalBottomSheet(
       context: context,
@@ -344,7 +349,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   }
 }
 
-// 🔹 ACTION BUTTON
 Widget _actionButton(
   BuildContext context,
   IconData icon,

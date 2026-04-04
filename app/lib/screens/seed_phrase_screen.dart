@@ -1,3 +1,5 @@
+// app/lib/screens/seed_phrase_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'confirm_phrase_screen.dart';
@@ -14,7 +16,6 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
   late List<String> _seedWords;
   late String _mnemonic;
-  String? walletAddress;
 
   @override
   void initState() {
@@ -22,15 +23,6 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
     _mnemonic = WalletService.generateMnemonic();
     _seedWords = _mnemonic.split(" ");
-
-    // 🔥 Create wallet
-    WalletService.createWallet(_mnemonic).then((wallet) {
-      setState(() {
-        walletAddress = wallet["address"];
-      });
-
-      print("Wallet Address: $walletAddress");
-    });
   }
 
   void _copyToClipboard() {
@@ -43,6 +35,9 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
@@ -75,13 +70,15 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
                 itemBuilder: (context, index) {
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Colors.grey.shade900 : Colors.white,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       "${index + 1}. ${_seedWords[index]}",
-                      style: const TextStyle(color: Colors.black),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
                   );
                 },
@@ -109,30 +106,26 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 PASS REAL DATA
-            // 🔥 BUTTON FIX
-
+            // 🔥 NO WALLET CREATION HERE
             OutlinedButton(
-              onPressed: walletAddress == null
-                  ? null
-                  : () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ConfirmPhraseScreen(
-                            seedWords: _seedWords,
-                            walletAddress: walletAddress!,
-                          ),
-                        ),
-                      );
-                    },
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ConfirmPhraseScreen(
+                      seedWords: _seedWords,
+                      mnemonic: _mnemonic, // 🔥 PASS MNEMONIC
+                    ),
+                  ),
+                );
+              },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.grey),
                 minimumSize: const Size(double.infinity, 50),
               ),
-              child: Text(
-                walletAddress == null ? "Loading..." : "I’ve Saved It",
-                style: const TextStyle(color: Colors.black),
+              child: const Text(
+                "I’ve Saved It",
+                style: TextStyle(color: Colors.black),
               ),
             ),
           ],

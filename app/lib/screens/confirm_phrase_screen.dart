@@ -1,14 +1,17 @@
+// app/lib/screens/confirm_phrase_screen.dart
+
 import 'package:flutter/material.dart';
 import '../core/app_shell.dart';
+import '../core/wallet_service.dart';
 
 class ConfirmPhraseScreen extends StatefulWidget {
   final List<String> seedWords;
-  final String walletAddress;
+  final String mnemonic;
 
   const ConfirmPhraseScreen({
     super.key,
     required this.seedWords,
-    required this.walletAddress,
+    required this.mnemonic,
   });
 
   @override
@@ -18,7 +21,7 @@ class ConfirmPhraseScreen extends StatefulWidget {
 class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
   late List<String> correctWords;
-  late List<String> shuffledWords;
+  late List<Map<String, dynamic>> shuffledWords;
 
   List<String> selectedWords = [];
 
@@ -27,32 +30,64 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
     super.initState();
 
     correctWords = widget.seedWords;
-    shuffledWords = List.from(correctWords)..shuffle();
+
+    // 🔥 FIX: index-based shuffle (duplicate safe)
+    shuffledWords = List.generate(correctWords.length, (i) {
+      return {"word": correctWords[i], "used": false};
+    })..shuffle();
   }
 
-  void selectWord(String word) {
-    if (!selectedWords.contains(word) &&
-        selectedWords.length < correctWords.length) {
+  void selectWord(int index) {
+    if (selectedWords.length >= correctWords.length) return;
+
+    if (!shuffledWords[index]["used"]) {
       setState(() {
-        selectedWords.add(word);
+        selectedWords.add(shuffledWords[index]["word"]);
+        shuffledWords[index]["used"] = true;
       });
     }
   }
 
   void removeLastWord() {
-    if (selectedWords.isNotEmpty) {
-      setState(() {
-        selectedWords.removeLast();
-      });
+    if (selectedWords.isEmpty) return;
+
+    final lastWord = selectedWords.removeLast();
+
+    // 🔥 find first used match
+    for (var item in shuffledWords) {
+      if (item["word"] == lastWord && item["used"] == true) {
+        item["used"] = false;
+        break;
+      }
     }
+
+    setState(() {});
   }
 
   bool isCorrect() {
     return selectedWords.join(" ") == correctWords.join(" ");
   }
 
+  Future<void> completeWalletSetup() async {
+    final wallet = await WalletService.createWallet(widget.mnemonic);
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppShell(
+          walletAddress: wallet["address"]!,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
@@ -72,7 +107,6 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 NUMBERED BOX GRID
             GridView.builder(
               shrinkWrap: true,
               itemCount: correctWords.length,
@@ -90,7 +124,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? Colors.grey.shade900 : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
@@ -99,67 +133,57 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
                     word.isEmpty
                         ? "${index + 1}."
                         : "${index + 1}. $word",
-                    style: const TextStyle(color: Colors.black),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
                 );
               },
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 10),
 
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
                 onPressed: removeLastWord,
-                icon: const Icon(
-                  Icons.backspace,
-                  color: Colors.black, // ✅ FIX
-                ),
+                icon: const Icon(Icons.backspace),
               ),
             ),
 
-            const SizedBox(height: 10),
             const Divider(),
-            const SizedBox(height: 10),
 
             Expanded(
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: shuffledWords.map((word) {
+                children: List.generate(shuffledWords.length, (index) {
 
-                  final isUsed = selectedWords.contains(word);
+                  final item = shuffledWords[index];
 
                   return ElevatedButton(
-                    onPressed: isUsed ? null : () => selectWord(word),
+                    onPressed: item["used"]
+                        ? null
+                        : () => selectWord(index),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          isUsed ? Colors.grey.shade300 : Colors.white,
+                      backgroundColor: item["used"]
+                          ? Colors.grey.shade300
+                          : Colors.white,
                     ),
                     child: Text(
-                      word,
+                      item["word"],
                       style: const TextStyle(color: Colors.black),
                     ),
                   );
-                }).toList(),
+                }),
               ),
             ),
 
             const SizedBox(height: 10),
 
-            // 🔥 FIXED NAVIGATION
             ElevatedButton(
               onPressed: isCorrect()
-                  ? () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AppShell(
-                            walletAddress: widget.walletAddress, // ✅ FIX
-                          ),
-                        ),
-                      );
-                    }
+                  ? completeWalletSetup
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),

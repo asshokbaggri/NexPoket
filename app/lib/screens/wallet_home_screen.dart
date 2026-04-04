@@ -1,8 +1,7 @@
-// app/lib/screens/wallet_home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/storage_service.dart';
+import '../core/wallet_service.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
 import 'seed_phrase_screen.dart';
@@ -10,8 +9,13 @@ import 'import_wallet_screen.dart';
 
 class WalletHomeScreen extends StatefulWidget {
   final String walletAddress;
+  final String network;
 
-  const WalletHomeScreen({super.key, required this.walletAddress});
+  const WalletHomeScreen({
+    super.key,
+    required this.walletAddress,
+    required this.network,
+  });
 
   @override
   State<WalletHomeScreen> createState() => _WalletHomeScreenState();
@@ -23,11 +27,29 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   String currentAddress = "";
   List<Map<String, dynamic>> wallets = [];
 
+  String balance = "0.00";
+  String symbol = "";
+  bool isLoadingBalance = true;
+
   @override
   void initState() {
     super.initState();
     currentAddress = widget.walletAddress;
     loadWallets();
+    loadBalance();
+  }
+
+  @override
+  void didUpdateWidget(covariant WalletHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.network != widget.network ||
+        oldWidget.walletAddress != widget.walletAddress) {
+
+      currentAddress = widget.walletAddress;
+
+      loadBalance();
+    }
   }
 
   Future<void> loadWallets() async {
@@ -35,9 +57,9 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
     if (data.isEmpty) return;
 
-    // ✅ FIX: Only assign default name if empty
     for (int i = 0; i < data.length; i++) {
-      if (data[i]["name"] == null || data[i]["name"].toString().trim().isEmpty) {
+      if (data[i]["name"] == null ||
+          data[i]["name"].toString().trim().isEmpty) {
         data[i]["name"] = "Wallet ${i + 1}";
       }
     }
@@ -52,6 +74,39 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       walletName = current["name"];
       currentAddress = current["address"];
     });
+  }
+
+  Future<void> loadBalance() async {
+
+    setState(() {
+      isLoadingBalance = true;
+    });
+
+    try {
+      final fetchedBalance = await WalletService.getBalance(
+        currentAddress,
+        widget.network,
+      );
+
+      final fetchedSymbol = WalletService.getSymbol(widget.network);
+
+      if (!mounted) return;
+
+      setState(() {
+        balance = fetchedBalance;
+        symbol = fetchedSymbol;
+        isLoadingBalance = false;
+      });
+
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        balance = "0.00";
+        symbol = WalletService.getSymbol(widget.network);
+        isLoadingBalance = false;
+      });
+    }
   }
 
   void copyAddress() {
@@ -70,6 +125,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     });
 
     await loadWallets();
+    await loadBalance();
 
     if (mounted) Navigator.pop(context);
   }
@@ -142,7 +198,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
               Navigator.pop(context);
 
-              await loadWallets(); // 🔥 reload AFTER save
+              await loadWallets();
             },
             child: const Text("Save"),
           )
@@ -228,19 +284,22 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                   color: const Color(0xFF3375BB),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Total Balance", style: TextStyle(color: Colors.white70)),
-                    SizedBox(height: 8),
-                    Text(
-                      "0.00 ETH",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    const Text("Total Balance", style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 8),
+
+                    isLoadingBalance
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            "$balance $symbol",
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ],
                 ),
               ),

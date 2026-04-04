@@ -1,3 +1,5 @@
+// app/lib/core/storage_service.dart
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'dart:convert';
@@ -7,6 +9,7 @@ class StorageService {
 
   static const _walletsKey = "wallets";
   static const _selectedWalletKey = "selected_wallet";
+  static const _selectedNetworkKey = "selected_network";
   static const _encryptionKeyKey = "encryption_key";
 
   // 🔐 GET / CREATE ENCRYPTION KEY
@@ -27,12 +30,13 @@ class StorageService {
 
       return encrypt.Key.fromBase64(key);
     } catch (e) {
-      // 🔥 fallback (rare case)
       final newKey = encrypt.Key.fromSecureRandom(32);
+
       await _storage.write(
         key: _encryptionKeyKey,
         value: base64Encode(newKey.bytes),
       );
+
       return newKey;
     }
   }
@@ -64,6 +68,24 @@ class StorageService {
     return encrypter.decrypt64(encryptedData, iv: iv);
   }
 
+  // 🔥 NETWORK STORAGE (MULTI-CHAIN SAFE)
+  static Future<void> setSelectedNetwork(String network) async {
+    await _storage.write(
+      key: _selectedNetworkKey,
+      value: network.trim(),
+    );
+  }
+
+  static Future<String> getSelectedNetwork() async {
+    final net = await _storage.read(key: _selectedNetworkKey);
+
+    if (net == null || net.trim().isEmpty) {
+      return "BSC";
+    }
+
+    return net.trim();
+  }
+
   // 🔥 SAVE WALLET (MULTI WALLET SAFE)
   static Future<void> saveWallet({
     required String name,
@@ -72,16 +94,13 @@ class StorageService {
   }) async {
     final wallets = await getWallets();
 
-    // ❌ duplicate wallet check
-    final exists =
-        wallets.any((w) => w["address"] == address);
-
+    final exists = wallets.any((w) => w["address"] == address);
     if (exists) return;
 
     final encrypted = await _encrypt(privateKey);
 
     final wallet = {
-      "name": name,
+      "name": name.trim(),
       "address": address,
       "privateKey": encrypted,
     };
@@ -93,11 +112,10 @@ class StorageService {
       value: jsonEncode(wallets),
     );
 
-    // ✅ set selected
     await setSelectedWallet(address);
   }
 
-  // 🔥 GET ALL WALLETS
+  // 🔥 GET ALL WALLETS (SAFE PARSE)
   static Future<List<Map<String, dynamic>>> getWallets() async {
     try {
       final data = await _storage.read(key: _walletsKey);
@@ -107,12 +125,14 @@ class StorageService {
       final decoded = jsonDecode(data);
 
       if (decoded is List) {
-        return List<Map<String, dynamic>>.from(decoded);
+        return decoded
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
       }
 
       return [];
     } catch (e) {
-      return []; // 🔥 crash safe
+      return [];
     }
   }
 
@@ -120,14 +140,17 @@ class StorageService {
   static Future<Map<String, dynamic>?> getSelectedWallet() async {
     try {
       final address = await _storage.read(key: _selectedWalletKey);
-
-      if (address == null) return null;
-
       final wallets = await getWallets();
+
+      if (wallets.isEmpty) return null;
+
+      if (address == null) {
+        return wallets.first;
+      }
 
       return wallets.firstWhere(
         (w) => w["address"] == address,
-        orElse: () => wallets.isNotEmpty ? wallets.first : {},
+        orElse: () => wallets.first,
       );
     } catch (e) {
       return null;
@@ -136,31 +159,41 @@ class StorageService {
 
   // 🔥 SET SELECTED WALLET
   static Future<void> setSelectedWallet(String address) async {
-    await _storage.write(key: _selectedWalletKey, value: address);
+    await _storage.write(
+      key: _selectedWalletKey,
+      value: address,
+    );
   }
 
-  // 🔥 GET PRIVATE KEY (DECRYPT SAFE)
+  // 🔥 GET PRIVATE KEY (SAFE)
   static Future<String?> getPrivateKey(String address) async {
     try {
       final wallets = await getWallets();
 
       final wallet = wallets.firstWhere(
         (w) => w["address"] == address,
+        orElse: () => {},
       );
+
+      if (wallet.isEmpty) return null;
 
       return await _decrypt(wallet["privateKey"]);
     } catch (e) {
-      return null; // 🔥 no crash
+      return null;
     }
   }
 
-  // 🔥 RENAME WALLET
+  // 🔥 RENAME WALLET (STRICT FIX)
   static Future<void> renameWallet(String address, String newName) async {
     final wallets = await getWallets();
 
+    final trimmedName = newName.trim();
+
+    if (trimmedName.isEmpty) return;
+
     for (var w in wallets) {
       if (w["address"] == address) {
-        w["name"] = newName;
+        w["name"] = trimmedName;
       }
     }
 
@@ -170,7 +203,7 @@ class StorageService {
     );
   }
 
-  // 🔥 DELETE WALLET (BONUS 🔥)
+  // 🔥 DELETE WALLET
   static Future<void> deleteWallet(String address) async {
     final wallets = await getWallets();
 

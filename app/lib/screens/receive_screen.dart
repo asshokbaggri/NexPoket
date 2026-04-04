@@ -1,34 +1,78 @@
+// app/lib/screens/receive_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
-class ReceiveScreen extends StatelessWidget {
+import '../core/storage_service.dart';
+import '../core/wallet_service.dart';
+
+class ReceiveScreen extends StatefulWidget {
   final String walletAddress;
 
   const ReceiveScreen({super.key, required this.walletAddress});
 
+  @override
+  State<ReceiveScreen> createState() => _ReceiveScreenState();
+}
+
+class _ReceiveScreenState extends State<ReceiveScreen> {
+
+  String selectedNetwork = "BSC";
+  String symbol = "BNB";
+
+  @override
+  void initState() {
+    super.initState();
+    initNetwork();
+  }
+
+  Future<void> initNetwork() async {
+    final net = await StorageService.getSelectedNetwork();
+
+    setState(() {
+      selectedNetwork = net;
+      symbol = WalletService.getSymbol(net);
+    });
+  }
+
   void copyAddress(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: walletAddress));
+    Clipboard.setData(ClipboardData(text: widget.walletAddress));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Address copied")),
+      const SnackBar(content: Text("Address copied ✔")),
     );
   }
 
   void shareAddress() {
-    Share.share(walletAddress);
+    Share.share(
+      "My $selectedNetwork ($symbol) Wallet Address:\n\n${widget.walletAddress}",
+    );
+  }
+
+  String getNetworkDisplayName() {
+    switch (selectedNetwork) {
+      case "Ethereum":
+        return "Ethereum (ETH)";
+      case "Polygon":
+        return "Polygon (MATIC)";
+      case "BSC":
+      default:
+        return "BNB Smart Chain (BNB)";
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       appBar: AppBar(
-        title: const Text("Receive"),
+        title: Text("Receive ($symbol)"),
       ),
 
       body: Padding(
@@ -36,31 +80,49 @@ class ReceiveScreen extends StatelessWidget {
         child: Column(
           children: [
 
+            const SizedBox(height: 10),
+
+            // 🔥 NETWORK LABEL (NEW 🔥)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3375BB).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                getNetworkDisplayName(),
+                style: const TextStyle(
+                  color: Color(0xFF3375BB),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
             const SizedBox(height: 30),
 
-            // 🔥 QR CARD (FIXED CONTRAST)
+            // 🔥 QR CARD (ALWAYS WHITE FOR SCAN)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white, // हमेशा white (QR readable रहे)
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 12,
                   )
                 ],
               ),
               child: QrImageView(
-                data: walletAddress,
+                data: widget.walletAddress,
                 version: QrVersions.auto,
-                size: 200,
+                size: 220,
               ),
             ),
 
             const SizedBox(height: 25),
 
-            // 🔹 ADDRESS BOX (FIXED)
+            // 🔹 ADDRESS BOX
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -68,19 +130,23 @@ class ReceiveScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Text(
-                walletAddress,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white : Colors.black, // ✅ FIX
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    widget.walletAddress,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // 🔥 ACTION BUTTONS (FIXED)
+            // 🔥 ACTION BUTTONS
             Row(
               children: [
 
@@ -120,8 +186,9 @@ class ReceiveScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
+            // 🔥 WARNING TEXT (NETWORK AWARE)
             Text(
-              "Only send supported assets to this address.",
+              "Send only $symbol ($selectedNetwork) assets to this address.\nSending other assets may result in permanent loss.",
               style: TextStyle(
                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
               ),

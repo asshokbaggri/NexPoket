@@ -1,9 +1,12 @@
+// app/lib/screens/send_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/storage_service.dart';
+import '../core/wallet_service.dart';
 
 class SendScreen extends StatefulWidget {
   final String walletAddress;
@@ -25,8 +28,38 @@ class _SendScreenState extends State<SendScreen> {
   bool isLoading = false;
   bool isScanning = false;
 
-  final String rpcUrl =
-      "https://mainnet.infura.io/v3/339315f5c81347debe3b12374712fa4d";
+  String selectedNetwork = "BSC";
+  String symbol = "BNB";
+
+  int chainId = 56; // default BSC
+
+  @override
+  void initState() {
+    super.initState();
+    initNetwork();
+  }
+
+  Future<void> initNetwork() async {
+    final net = await StorageService.getSelectedNetwork();
+
+    setState(() {
+      selectedNetwork = net;
+      symbol = WalletService.getSymbol(net);
+      chainId = getChainId(net);
+    });
+  }
+
+  int getChainId(String network) {
+    switch (network) {
+      case "Ethereum":
+        return 1;
+      case "Polygon":
+        return 137;
+      case "BSC":
+      default:
+        return 56;
+    }
+  }
 
   Future<void> sendTransaction() async {
     final toAddress = addressController.text.trim();
@@ -39,9 +72,9 @@ class _SendScreenState extends State<SendScreen> {
       return;
     }
 
-    double amountEth;
+    double amount;
     try {
-      amountEth = double.parse(amountText);
+      amount = double.parse(amountText);
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Invalid amount")),
@@ -52,7 +85,6 @@ class _SendScreenState extends State<SendScreen> {
     setState(() => isLoading = true);
 
     try {
-      // 🔥 FIXED
       final privateKey =
           await StorageService.getPrivateKey(widget.walletAddress);
 
@@ -60,9 +92,11 @@ class _SendScreenState extends State<SendScreen> {
         throw Exception("Wallet not found");
       }
 
-      final client = Web3Client(rpcUrl, Client());
-      final credentials = EthPrivateKey.fromHex(privateKey);
+      final rpc = WalletService.networks[selectedNetwork]!["rpc"]!;
 
+      final client = Web3Client(rpc, Client());
+
+      final credentials = EthPrivateKey.fromHex(privateKey);
       final senderAddress = await credentials.extractAddress();
 
       EthereumAddress receiver;
@@ -77,9 +111,10 @@ class _SendScreenState extends State<SendScreen> {
       final balanceEth =
           balance.getValueInUnit(EtherUnit.ether);
 
-      // 🔥 GAS
+      // 🔥 GAS PRICE
       final gasPrice = await client.getGasPrice();
 
+      // 🔥 GAS LIMIT
       BigInt gasLimit;
       try {
         gasLimit = await client.estimateGas(
@@ -87,24 +122,25 @@ class _SendScreenState extends State<SendScreen> {
           to: receiver,
           value: EtherAmount.fromUnitAndValue(
             EtherUnit.ether,
-            amountEth,
+            amount,
           ),
         );
       } catch (_) {
         gasLimit = BigInt.from(21000);
       }
 
+      // 🔥 GAS COST
       final gasCostWei = gasPrice.getInWei * gasLimit;
       final gasCostEth =
           EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
 
-      final totalNeeded = amountEth + gasCostEth;
+      final totalNeeded = amount + gasCostEth;
 
       if (balanceEth < totalNeeded) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Insufficient Balance\nNeed: ${totalNeeded.toStringAsFixed(6)} ETH\nHave: ${balanceEth.toStringAsFixed(6)} ETH",
+              "Insufficient Balance\nNeed: ${totalNeeded.toStringAsFixed(6)} $symbol\nHave: ${balanceEth.toStringAsFixed(6)} $symbol",
             ),
           ),
         );
@@ -112,19 +148,19 @@ class _SendScreenState extends State<SendScreen> {
         return;
       }
 
-      // 🚀 SEND
+      // 🚀 SEND TX
       final txHash = await client.sendTransaction(
         credentials,
         Transaction(
           to: receiver,
           value: EtherAmount.fromUnitAndValue(
             EtherUnit.ether,
-            amountEth,
+            amount,
           ),
           gasPrice: gasPrice,
           maxGas: gasLimit.toInt(),
         ),
-        chainId: 1,
+        chainId: chainId,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,13 +171,14 @@ class _SendScreenState extends State<SendScreen> {
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text("Error: ${e.toString()}")),
       );
     }
 
     setState(() => isLoading = false);
   }
 
+  // 🔥 QR SCANNER
   void openScanner() {
     isScanning = false;
 
@@ -183,14 +220,16 @@ class _SendScreenState extends State<SendScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text("Send")),
+      appBar: AppBar(
+        title: Text("Send ($symbol)"),
+      ),
 
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            // 🔹 FROM
+            // 🔹 FROM ADDRESS
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -217,6 +256,7 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
+            // 🔹 TO ADDRESS
             TextField(
               controller: addressController,
               style: TextStyle(
@@ -240,6 +280,7 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
+            // 🔹 AMOUNT
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
@@ -247,7 +288,7 @@ class _SendScreenState extends State<SendScreen> {
                 color: isDark ? Colors.white : Colors.black,
               ),
               decoration: InputDecoration(
-                labelText: "Amount (ETH)",
+                labelText: "Amount ($symbol)",
                 filled: true,
                 fillColor:
                     isDark ? Colors.grey.shade900 : Colors.grey.shade100,

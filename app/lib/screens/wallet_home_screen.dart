@@ -6,6 +6,7 @@ import 'send_screen.dart';
 import 'receive_screen.dart';
 import 'seed_phrase_screen.dart';
 import 'import_wallet_screen.dart';
+import 'add_token_screen.dart';
 
 class WalletHomeScreen extends StatefulWidget {
   final String walletAddress;
@@ -31,12 +32,13 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   String symbol = "";
   bool isLoadingBalance = true;
 
+  List<Map<String, dynamic>> tokens = [];
+
   @override
   void initState() {
     super.initState();
     currentAddress = widget.walletAddress;
-    loadWallets();
-    loadBalance();
+    initAll();
   }
 
   @override
@@ -47,9 +49,14 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         oldWidget.walletAddress != widget.walletAddress) {
 
       currentAddress = widget.walletAddress;
-
-      loadBalance();
+      initAll();
     }
+  }
+
+  Future<void> initAll() async {
+    await loadWallets();
+    await loadBalance();
+    await loadTokens();
   }
 
   Future<void> loadWallets() async {
@@ -77,10 +84,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   }
 
   Future<void> loadBalance() async {
-
-    setState(() {
-      isLoadingBalance = true;
-    });
+    setState(() => isLoadingBalance = true);
 
     try {
       final fetchedBalance = await WalletService.getBalance(
@@ -97,7 +101,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         symbol = fetchedSymbol;
         isLoadingBalance = false;
       });
-
     } catch (e) {
       if (!mounted) return;
 
@@ -107,6 +110,19 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         isLoadingBalance = false;
       });
     }
+  }
+
+  Future<void> loadTokens() async {
+
+    final defaultTokens =
+        WalletService.getDefaultTokens(widget.network);
+
+    final customTokens =
+        await StorageService.getTokens(widget.network);
+
+    setState(() {
+      tokens = [...defaultTokens, ...customTokens];
+    });
   }
 
   void copyAddress() {
@@ -124,8 +140,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       currentAddress = address;
     });
 
-    await loadWallets();
-    await loadBalance();
+    await initAll();
 
     if (mounted) Navigator.pop(context);
   }
@@ -181,23 +196,16 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Rename Wallet"),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: "Enter wallet name",
-          ),
-        ),
+        content: TextField(controller: controller),
         actions: [
           TextButton(
             onPressed: () async {
               final newName = controller.text.trim();
-
               if (newName.isEmpty) return;
 
               await StorageService.renameWallet(address, newName);
 
               Navigator.pop(context);
-
               await loadWallets();
             },
             child: const Text("Save"),
@@ -210,7 +218,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   void showWalletList() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (_) {
         return ListView(
           padding: const EdgeInsets.all(10),
@@ -242,14 +249,24 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
+  Widget buildTokenItem(Map<String, dynamic> token) {
+    return ListTile(
+      leading: const CircleAvatar(
+        backgroundColor: Color(0xFF3375BB),
+        child: Icon(Icons.currency_bitcoin, color: Colors.white),
+      ),
+      title: Text(token["symbol"]),
+      subtitle: Text(token["name"]),
+      trailing: const Text("0.00"),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
       appBar: AppBar(
         title: GestureDetector(
           onTap: showWalletList,
@@ -270,138 +287,131 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         ],
       ),
 
-      body: SafeArea(
-        child: Padding(
+      body: RefreshIndicator(
+        onRefresh: initAll,
+        child: ListView(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          children: [
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3375BB),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Total Balance", style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 8),
-
-                    isLoadingBalance
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            "$balance $symbol",
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ],
-                ),
+            // 🔥 BALANCE CARD
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3375BB),
+                borderRadius: BorderRadius.circular(16),
               ),
-
-              const SizedBox(height: 20),
-
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade900 : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        currentAddress,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: copyAddress,
-                      child: const Icon(
-                        Icons.copy,
-                        color: Color(0xFF3375BB),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text("Total Balance",
+                      style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 8),
 
-                  _actionButton(
-                    context,
-                    Icons.send,
-                    "Send",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SendScreen(
-                            walletAddress: currentAddress,
+                  isLoadingBalance
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          "$balance $symbol",
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                      );
-                    },
-                  ),
-
-                  _actionButton(
-                    context,
-                    Icons.download,
-                    "Receive",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReceiveScreen(
-                            walletAddress: currentAddress,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _actionButton(
-                    context,
-                    Icons.add,
-                    "Buy",
-                    () {},
-                  ),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
-              const Text(
-                "Your Assets",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            // 🔥 ADDRESS
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900 : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-
-              const SizedBox(height: 15),
-
-              Expanded(
-                child: Center(
-                  child: Text(
-                    "No assets yet",
-                    style: TextStyle(color: Colors.grey.shade500),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      currentAddress,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
+                  GestureDetector(
+                    onTap: copyAddress,
+                    child: const Icon(Icons.copy,
+                        color: Color(0xFF3375BB)),
+                  )
+                ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // 🔥 ACTIONS
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+
+                _actionButton(context, Icons.send, "Send", () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SendScreen(walletAddress: currentAddress),
+                    ),
+                  );
+                }),
+
+                _actionButton(context, Icons.download, "Receive", () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ReceiveScreen(walletAddress: currentAddress),
+                    ),
+                  );
+                }),
+
+                _actionButton(context, Icons.add, "Buy", () {}),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+
+            // 🔥 TOKEN HEADER
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Your Assets",
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+                TextButton(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddTokenScreen(
+                          network: widget.network,
+                        ),
+                      ),
+                    );
+
+                    loadTokens();
+                  },
+                  child: const Text("Add Token"),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // 🔥 TOKEN LIST
+            ...tokens.map((t) => buildTokenItem(t)).toList(),
+          ],
         ),
       ),
     );

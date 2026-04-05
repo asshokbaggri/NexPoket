@@ -1,5 +1,3 @@
-// app/lib/screens/send_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
@@ -31,7 +29,10 @@ class _SendScreenState extends State<SendScreen> {
   String selectedNetwork = "BSC";
   String symbol = "BNB";
 
-  int chainId = 56; // default BSC
+  int chainId = 56;
+
+  List<Map<String, dynamic>> tokens = [];
+  Map<String, dynamic>? selectedToken;
 
   @override
   void initState() {
@@ -42,9 +43,17 @@ class _SendScreenState extends State<SendScreen> {
   Future<void> initNetwork() async {
     final net = await StorageService.getSelectedNetwork();
 
+    final defaultTokens = WalletService.getDefaultTokens(net);
+    final customTokens = await StorageService.getTokens(net);
+
+    final allTokens = [...defaultTokens, ...customTokens];
+
     setState(() {
       selectedNetwork = net;
-      symbol = WalletService.getSymbol(net);
+      tokens = allTokens;
+      selectedToken = allTokens.first;
+
+      symbol = selectedToken!["symbol"];
       chainId = getChainId(net);
     });
   }
@@ -62,6 +71,7 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   Future<void> sendTransaction() async {
+
     final toAddress = addressController.text.trim();
     final amountText = amountController.text.trim();
 
@@ -93,92 +103,77 @@ class _SendScreenState extends State<SendScreen> {
       }
 
       final rpc = WalletService.networks[selectedNetwork]!["rpc"]!;
-
       final client = Web3Client(rpc, Client());
 
       final credentials = EthPrivateKey.fromHex(privateKey);
       final senderAddress = await credentials.extractAddress();
 
-      EthereumAddress receiver;
-      try {
-        receiver = EthereumAddress.fromHex(toAddress);
-      } catch (_) {
-        throw Exception("Invalid recipient address");
-      }
+      final receiver = EthereumAddress.fromHex(toAddress);
 
-      // 🔥 BALANCE
-      final balance = await client.getBalance(senderAddress);
-      final balanceEth =
-          balance.getValueInUnit(EtherUnit.ether);
+      // 🔥 NATIVE TOKEN ONLY (ERC20 NEXT STEP)
+      if (selectedToken!["type"] == "native") {
 
-      // 🔥 GAS PRICE
-      final gasPrice = await client.getGasPrice();
+        final balance = await client.getBalance(senderAddress);
+        final balanceEth = balance.getValueInUnit(EtherUnit.ether);
 
-      // 🔥 GAS LIMIT
-      BigInt gasLimit;
-      try {
-        gasLimit = await client.estimateGas(
-          sender: senderAddress,
-          to: receiver,
-          value: EtherAmount.fromUnitAndValue(
-            EtherUnit.ether,
-            amount,
-          ),
-        );
-      } catch (_) {
-        gasLimit = BigInt.from(21000);
-      }
+        final gasPrice = await client.getGasPrice();
 
-      // 🔥 GAS COST
-      final gasCostWei = gasPrice.getInWei * gasLimit;
-      final gasCostEth =
-          EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
-
-      final totalNeeded = amount + gasCostEth;
-
-      if (balanceEth < totalNeeded) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Insufficient Balance\nNeed: ${totalNeeded.toStringAsFixed(6)} $symbol\nHave: ${balanceEth.toStringAsFixed(6)} $symbol",
+        BigInt gasLimit;
+        try {
+          gasLimit = await client.estimateGas(
+            sender: senderAddress,
+            to: receiver,
+            value: EtherAmount.fromUnitAndValue(
+              EtherUnit.ether,
+              amount,
             ),
+          );
+        } catch (_) {
+          gasLimit = BigInt.from(21000);
+        }
+
+        final gasCostWei = gasPrice.getInWei * gasLimit;
+        final gasCostEth =
+            EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
+
+        final totalNeeded = amount + gasCostEth;
+
+        if (balanceEth < totalNeeded) {
+          throw Exception("Insufficient balance");
+        }
+
+        final txHash = await client.sendTransaction(
+          credentials,
+          Transaction(
+            to: receiver,
+            value: EtherAmount.fromUnitAndValue(
+              EtherUnit.ether,
+              amount,
+            ),
+            gasPrice: gasPrice,
+            maxGas: gasLimit.toInt(),
           ),
+          chainId: chainId,
         );
-        setState(() => isLoading = false);
-        return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("TX Sent: $txHash")),
+        );
+      } else {
+        throw Exception("Token transfer coming next update 🚀");
       }
-
-      // 🚀 SEND TX
-      final txHash = await client.sendTransaction(
-        credentials,
-        Transaction(
-          to: receiver,
-          value: EtherAmount.fromUnitAndValue(
-            EtherUnit.ether,
-            amount,
-          ),
-          gasPrice: gasPrice,
-          maxGas: gasLimit.toInt(),
-        ),
-        chainId: chainId,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("TX Sent: $txHash")),
-      );
 
       Navigator.pop(context);
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
+        SnackBar(content: Text(e.toString())),
       );
     }
 
     setState(() => isLoading = false);
   }
 
-  // 🔥 QR SCANNER
   void openScanner() {
     isScanning = false;
 
@@ -191,24 +186,48 @@ class _SendScreenState extends State<SendScreen> {
             onDetect: (barcodeCapture) {
               if (isScanning) return;
 
-              final barcodes = barcodeCapture.barcodes;
+              final code = barcodeCapture.barcodes.first.rawValue;
 
-              if (barcodes.isNotEmpty) {
-                final code = barcodes.first.rawValue;
+              if (code != null) {
+                isScanning = true;
+                addressController.text = code;
 
-                if (code != null) {
-                  isScanning = true;
-
-                  addressController.text = code;
-
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    Navigator.pop(context);
-                  });
-                }
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  Navigator.pop(context);
+                });
               }
             },
           ),
         ),
+      ),
+    );
+  }
+
+  Widget buildTokenSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.grey.shade100,
+      ),
+      child: DropdownButton<Map<String, dynamic>>(
+        value: selectedToken,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: tokens.map((t) {
+          return DropdownMenuItem(
+            value: t,
+            child: Text("${t["symbol"]}"),
+          );
+        }).toList(),
+        onChanged: (val) {
+          if (val == null) return;
+
+          setState(() {
+            selectedToken = val;
+            symbol = val["symbol"];
+          });
+        },
       ),
     );
   }
@@ -219,7 +238,6 @@ class _SendScreenState extends State<SendScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text("Send ($symbol)"),
       ),
@@ -229,7 +247,10 @@ class _SendScreenState extends State<SendScreen> {
         child: Column(
           children: [
 
-            // 🔹 FROM ADDRESS
+            buildTokenSelector(),
+
+            const SizedBox(height: 20),
+
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -244,10 +265,6 @@ class _SendScreenState extends State<SendScreen> {
                     child: Text(
                       widget.walletAddress,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
                     ),
                   ),
                 ],
@@ -256,46 +273,24 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔹 TO ADDRESS
             TextField(
               controller: addressController,
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-              ),
               decoration: InputDecoration(
                 labelText: "Recipient Address",
-                filled: true,
-                fillColor:
-                    isDark ? Colors.grey.shade900 : Colors.grey.shade100,
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.qr_code_scanner),
                   onPressed: openScanner,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
                 ),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // 🔹 AMOUNT
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-              ),
               decoration: InputDecoration(
                 labelText: "Amount ($symbol)",
-                filled: true,
-                fillColor:
-                    isDark ? Colors.grey.shade900 : Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
               ),
             ),
 
@@ -305,12 +300,11 @@ class _SendScreenState extends State<SendScreen> {
               onPressed: isLoading ? null : sendTransaction,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
-                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
               ),
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Send Transaction"),
+                  : const Text("Send"),
             ),
           ],
         ),

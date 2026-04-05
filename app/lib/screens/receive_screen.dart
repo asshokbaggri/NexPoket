@@ -1,5 +1,3 @@
-// app/lib/screens/receive_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -20,6 +18,10 @@ class ReceiveScreen extends StatefulWidget {
 class _ReceiveScreenState extends State<ReceiveScreen> {
 
   String selectedNetwork = "BSC";
+
+  List<Map<String, dynamic>> tokens = [];
+  Map<String, dynamic>? selectedToken;
+
   String symbol = "BNB";
 
   @override
@@ -29,11 +31,19 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   }
 
   Future<void> initNetwork() async {
+
     final net = await StorageService.getSelectedNetwork();
+
+    final defaultTokens = WalletService.getDefaultTokens(net);
+    final customTokens = await StorageService.getTokens(net);
+
+    final allTokens = [...defaultTokens, ...customTokens];
 
     setState(() {
       selectedNetwork = net;
-      symbol = WalletService.getSymbol(net);
+      tokens = allTokens;
+      selectedToken = allTokens.first;
+      symbol = selectedToken!["symbol"];
     });
   }
 
@@ -56,11 +66,39 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       case "Ethereum":
         return "Ethereum (ETH)";
       case "Polygon":
-        return "Polygon (MATIC)";
+        return "Polygon (POL)";
       case "BSC":
       default:
         return "BNB Smart Chain (BNB)";
     }
+  }
+
+  Widget buildTokenSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3375BB).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DropdownButton<Map<String, dynamic>>(
+        value: selectedToken,
+        underline: const SizedBox(),
+        items: tokens.map((t) {
+          return DropdownMenuItem(
+            value: t,
+            child: Text("${t["symbol"]}"),
+          );
+        }).toList(),
+        onChanged: (val) {
+          if (val == null) return;
+
+          setState(() {
+            selectedToken = val;
+            symbol = val["symbol"];
+          });
+        },
+      ),
+    );
   }
 
   @override
@@ -82,25 +120,29 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 NETWORK LABEL (NEW 🔥)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3375BB).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                getNetworkDisplayName(),
-                style: const TextStyle(
-                  color: Color(0xFF3375BB),
-                  fontWeight: FontWeight.w600,
+            // 🔥 NETWORK + TOKEN
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildTokenSelector(),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    getNetworkDisplayName(),
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ),
-              ),
+              ],
             ),
 
             const SizedBox(height: 30),
 
-            // 🔥 QR CARD (ALWAYS WHITE FOR SCAN)
+            // 🔥 QR CARD
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -130,17 +172,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    widget.walletAddress,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.walletAddress,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
             ),
 
@@ -186,7 +224,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 WARNING TEXT (NETWORK AWARE)
+            // 🔥 WARNING
             Text(
               "Send only $symbol ($selectedNetwork) assets to this address.\nSending other assets may result in permanent loss.",
               style: TextStyle(

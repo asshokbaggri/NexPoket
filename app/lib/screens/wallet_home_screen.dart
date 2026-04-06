@@ -1,3 +1,5 @@
+// app/lib/screens/wallet_home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/storage_service.dart';
@@ -33,6 +35,8 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   bool isLoadingBalance = true;
 
   List<Map<String, dynamic>> tokens = [];
+  Map<String, String> tokenBalances = {};
+  bool isLoadingTokens = true;
 
   @override
   void initState() {
@@ -112,17 +116,73 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     }
   }
 
+  // 🔥 FIXED TOKEN LOADER (NO TYPE ERROR)
   Future<void> loadTokens() async {
 
-    final defaultTokens =
-        WalletService.getDefaultTokens(widget.network);
+    setState(() => isLoadingTokens = true);
 
-    final customTokens =
-        await StorageService.getTokens(widget.network);
+    try {
+      final List<Map<String, dynamic>> defaultTokens =
+          List<Map<String, dynamic>>.from(
+              WalletService.getDefaultTokens(widget.network));
 
-    setState(() {
-      tokens = [...defaultTokens, ...customTokens];
-    });
+      final List<Map<String, dynamic>> customTokens =
+          List<Map<String, dynamic>>.from(
+              await StorageService.getTokensByNetwork(widget.network));
+
+      final List<Map<String, dynamic>> merged = [
+        ...defaultTokens,
+        ...customTokens
+      ];
+
+      Map<String, String> balances = {};
+
+      for (var token in merged) {
+
+        try {
+          String bal = "0.00";
+
+          final isNative = token["isNative"] == true;
+          final contract = token["contract"]?.toString() ?? "";
+
+          if (isNative || contract.isEmpty) {
+            bal = await WalletService.getBalance(
+              currentAddress,
+              widget.network,
+            );
+          } else {
+            bal = await WalletService.getTokenBalance(
+              address: currentAddress,
+              contract: contract,
+              decimals: int.tryParse(token["decimals"].toString()) ?? 18,
+              network: widget.network,
+            );
+          }
+
+          balances[token["symbol"]] = bal;
+
+        } catch (e) {
+          balances[token["symbol"]] = "0.00";
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        tokens = merged;
+        tokenBalances = balances;
+        isLoadingTokens = false;
+      });
+
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        tokens = [];
+        tokenBalances = {};
+        isLoadingTokens = false;
+      });
+    }
   }
 
   void copyAddress() {
@@ -143,76 +203,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     await initAll();
 
     if (mounted) Navigator.pop(context);
-  }
-
-  void showAddWalletPopup() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-
-              ListTile(
-                leading: const Icon(Icons.add_circle_outline),
-                title: const Text("Create New Wallet"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SeedPhraseScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              ListTile(
-                leading: const Icon(Icons.import_export),
-                title: const Text("Import Wallet"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ImportWalletScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void renameWallet(String address, String currentName) {
-    final controller = TextEditingController(text: currentName);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Rename Wallet"),
-        content: TextField(controller: controller),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final newName = controller.text.trim();
-              if (newName.isEmpty) return;
-
-              await StorageService.renameWallet(address, newName);
-
-              Navigator.pop(context);
-              await loadWallets();
-            },
-            child: const Text("Save"),
-          )
-        ],
-      ),
-    );
   }
 
   void showWalletList() {
@@ -240,8 +230,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                   ? const Icon(Icons.check, color: Color(0xFF3375BB))
                   : null,
               onTap: () => switchWallet(w["address"]),
-              onLongPress: () =>
-                  renameWallet(w["address"], w["name"]),
             );
           }).toList(),
         );
@@ -249,15 +237,38 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
+  // 🔥 TOKEN UI FIXED
   Widget buildTokenItem(Map<String, dynamic> token) {
+
+    final isNative = token["isNative"] == true;
+    final contract = token["contract"]?.toString() ?? "";
+
+    final iconUrl = WalletService.getTokenIcon(
+      network: widget.network,
+      contract: contract,
+      isNative: isNative,
+    );
+
+    final bal = tokenBalances[token["symbol"]] ?? "0.00";
+
     return ListTile(
-      leading: const CircleAvatar(
-        backgroundColor: Color(0xFF3375BB),
-        child: Icon(Icons.currency_bitcoin, color: Colors.white),
+      leading: CircleAvatar(
+        backgroundColor: Colors.white,
+        backgroundImage: NetworkImage(iconUrl),
       ),
-      title: Text(token["symbol"]),
-      subtitle: Text(token["name"]),
-      trailing: const Text("0.00"),
+      title: Text(token["symbol"] ?? ""),
+      subtitle: Text(token["name"] ?? ""),
+      trailing: Text(bal),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SendScreen(
+              walletAddress: currentAddress,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -279,12 +290,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             ],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: showAddWalletPopup,
-          ),
-        ],
       ),
 
       body: RefreshIndicator(
@@ -293,7 +298,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
           padding: const EdgeInsets.all(20),
           children: [
 
-            // 🔥 BALANCE CARD
+            // 🔥 BALANCE
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -306,7 +311,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                   const Text("Total Balance",
                       style: TextStyle(color: Colors.white70)),
                   const SizedBox(height: 8),
-
                   isLoadingBalance
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
@@ -329,7 +333,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               decoration: BoxDecoration(
                 color: isDark ? Colors.grey.shade900 : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 children: [
@@ -381,7 +384,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
             const SizedBox(height: 30),
 
-            // 🔥 TOKEN HEADER
+            // 🔥 HEADER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -400,17 +403,19 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                       ),
                     );
 
-                    loadTokens();
+                    await loadTokens();
                   },
-                  child: const Text("Add Token"),
+                  child: const Text("Add Crypto"),
                 ),
               ],
             ),
 
             const SizedBox(height: 10),
 
-            // 🔥 TOKEN LIST
-            ...tokens.map((t) => buildTokenItem(t)).toList(),
+            if (isLoadingTokens)
+              const Center(child: CircularProgressIndicator())
+            else
+              ...tokens.map((t) => buildTokenItem(t)).toList(),
           ],
         ),
       ),

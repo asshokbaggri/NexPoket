@@ -1,3 +1,5 @@
+// app/lib/core/app_shell.dart
+
 import 'package:flutter/material.dart';
 import '../core/storage_service.dart';
 import '../screens/wallet_home_screen.dart';
@@ -7,8 +9,13 @@ import '../screens/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
   final String walletAddress;
+  final String network; // 🔥 NEW
 
-  const AppShell({super.key, required this.walletAddress});
+  const AppShell({
+    super.key,
+    required this.walletAddress,
+    required this.network, // 🔥 NEW
+  });
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -17,7 +24,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  String selectedNetwork = "BSC";
+  late String selectedNetwork;
 
   List<Widget> _screens = [];
 
@@ -31,25 +38,19 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    initNetwork();
-  }
 
-  Future<void> initNetwork() async {
-    final net = await StorageService.getSelectedNetwork();
+    // 🔥 USE PASSED NETWORK (FIX)
+    selectedNetwork = widget.network;
 
-    setState(() {
-      selectedNetwork = net;
-
-      _screens = [
-        WalletHomeScreen(
-          walletAddress: widget.walletAddress,
-          network: selectedNetwork,
-        ),
-        const DiscoverScreen(),
-        const ActivityScreen(),
-        const SettingsScreen(),
-      ];
-    });
+    _screens = [
+      WalletHomeScreen(
+        walletAddress: widget.walletAddress,
+        network: selectedNetwork,
+      ),
+      const DiscoverScreen(),
+      const ActivityScreen(),
+      const SettingsScreen(),
+    ];
   }
 
   void changeNetwork(String network) async {
@@ -87,11 +88,8 @@ class _AppShellState extends State<AppShell> {
         title: _currentIndex == 0
             ? Row(
                 children: [
-
-                  // 🔥 LEFT SIDE EMPTY SPACE (balance alignment)
                   const Spacer(),
 
-                  // 🔥 NETWORK DROPDOWN RIGHT SIDE
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(

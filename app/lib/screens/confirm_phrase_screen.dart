@@ -77,6 +77,7 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
       MaterialPageRoute(
         builder: (_) => AppShell(
           walletAddress: wallet["address"]!,
+          network: "BSC", // DEFAULT FIX
         ),
       ),
       (route) => false, // 🔥 REMOVE ALL PREVIOUS SCREENS

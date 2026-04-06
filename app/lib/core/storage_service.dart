@@ -1,3 +1,5 @@
+// app/lib/core/storage_service.dart
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'dart:convert';
@@ -147,6 +149,7 @@ class StorageService {
     }
   }
 
+  // 🔥🔥🔥 FINAL FIX (MISSING FUNCTION ADDED HERE)
   static Future<Map<String, dynamic>?> getSelectedWallet() async {
     try {
       final address = await _storage.read(key: _selectedWalletKey);
@@ -154,7 +157,7 @@ class StorageService {
 
       if (wallets.isEmpty) return null;
 
-      if (address == null) {
+      if (address == null || address.isEmpty) {
         return wallets.first;
       }
 
@@ -195,52 +198,8 @@ class StorageService {
     }
   }
 
-  // 🔥 FIXED RENAME (REAL FIX)
-  static Future<void> renameWallet(String address, String newName) async {
-    final wallets = await getWallets();
-
-    final trimmedName = newName.trim();
-    if (trimmedName.isEmpty) return;
-
-    final updated = wallets.map((w) {
-      if (w["address"] == address) {
-        return {
-          ...w,
-          "name": trimmedName,
-        };
-      }
-      return w;
-    }).toList();
-
-    await _storage.write(
-      key: _walletsKey,
-      value: jsonEncode(updated),
-    );
-  }
-
-  static Future<void> deleteWallet(String address) async {
-    final wallets = await getWallets();
-
-    wallets.removeWhere((w) => w["address"] == address);
-
-    await _storage.write(
-      key: _walletsKey,
-      value: jsonEncode(wallets),
-    );
-
-    final selected = await _storage.read(key: _selectedWalletKey);
-
-    if (selected == address) {
-      if (wallets.isNotEmpty) {
-        await setSelectedWallet(wallets.first["address"]);
-      } else {
-        await _storage.delete(key: _selectedWalletKey);
-      }
-    }
-  }
-
   // =========================================================
-  // 🪙 TOKEN SYSTEM (🔥 PRO LEVEL 🔥)
+  // 🪙 TOKEN SYSTEM
   // =========================================================
 
   static Future<List<Map<String, dynamic>>> getCustomTokens() async {
@@ -279,12 +238,29 @@ class StorageService {
       "contract": token["contract"],
       "decimals": token["decimals"],
       "network": token["network"],
+      "isNative": false,
     });
 
     await _storage.write(
       key: _customTokensKey,
       value: jsonEncode(tokens),
     );
+  }
+
+  static Future<List<Map<String, dynamic>>> getTokensByNetwork(
+      String network) async {
+
+    final tokens = await getCustomTokens();
+
+    return tokens
+        .where((t) => t["network"] == network)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getTokens(
+      String network) async {
+    return getTokensByNetwork(network);
   }
 
   static Future<void> removeCustomToken({
@@ -302,14 +278,6 @@ class StorageService {
       key: _customTokensKey,
       value: jsonEncode(tokens),
     );
-  }
-
-  static Future<List<Map<String, dynamic>>> getTokens(String network) async {
-    final tokens = await getCustomTokens();
-
-    return tokens
-        .where((t) => t["network"] == network)
-        .toList();
   }
 
   // =========================================================

@@ -1,3 +1,5 @@
+// app/lib/screens/splash_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/storage_service.dart';
@@ -20,22 +22,40 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initApp() async {
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      await Future.delayed(const Duration(seconds: 2));
 
-    if (!mounted) return;
+      final wallet = await StorageService.getSelectedWallet();
+      final network = await StorageService.getSelectedNetwork();
 
-    final wallet = await StorageService.getSelectedWallet();
+      if (!mounted) return;
 
-    if (wallet != null && wallet["address"] != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AppShell(
-            walletAddress: wallet["address"],
+      if (wallet != null &&
+          wallet["address"] != null &&
+          wallet["address"].toString().isNotEmpty) {
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AppShell(
+              walletAddress: wallet["address"],
+              network: network, // ✅ now supported
+            ),
           ),
-        ),
-      );
-    } else {
+        );
+
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const OnboardingScreen(),
+          ),
+        );
+      }
+
+    } catch (e) {
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -50,7 +70,6 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         width: double.infinity,
-
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -61,15 +80,11 @@ class _SplashScreenState extends State<SplashScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
 
-            Image.asset(
-              'assets/icon.png',
-              width: 110,
-            ),
+            Image.asset('assets/icon.png', width: 110),
 
             const SizedBox(height: 20),
 
@@ -79,7 +94,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                letterSpacing: 1,
               ),
             ),
 
@@ -87,17 +101,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
             const Text(
               "Smart Digital Wallet",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
+              style: TextStyle(color: Colors.white70),
             ),
 
             const SizedBox(height: 30),
 
             const CircularProgressIndicator(
               color: Colors.white,
-              strokeWidth: 2,
             ),
           ],
         ),

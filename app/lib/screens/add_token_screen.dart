@@ -1,5 +1,12 @@
+// app/lib/screens/add_token_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:web3dart/web3dart.dart';
+import 'package:http/http.dart';
+
 import '../core/storage_service.dart';
+import '../core/wallet_service.dart';
 
 class AddTokenScreen extends StatefulWidget {
   final String network;
@@ -21,6 +28,93 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
   final decimalsController = TextEditingController();
 
   bool isLoading = false;
+  bool isFetching = false;
+
+  String selectedNetwork = "BSC";
+
+  @override
+  void initState() {
+    super.initState();
+    selectedNetwork = widget.network;
+
+    contractController.addListener(() {
+      if (contractController.text.length > 20) {
+        fetchTokenDetails();
+      }
+    });
+  }
+
+  // 🔥 AUTO FETCH TOKEN DETAILS (ERC20)
+  Future<void> fetchTokenDetails() async {
+    final contract = contractController.text.trim();
+
+    if (contract.isEmpty) return;
+
+    setState(() => isFetching = true);
+
+    try {
+      final rpc = WalletService.networks[selectedNetwork]!["rpc"]!;
+      final client = Web3Client(rpc, Client());
+
+      final contractAddr = EthereumAddress.fromHex(contract);
+
+      final abi = ContractAbi.fromJson(
+        '''
+        [
+          {"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"},
+          {"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"type":"function"},
+          {"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}
+        ]
+        ''',
+        "ERC20",
+      );
+
+      final contractObj = DeployedContract(abi, contractAddr);
+
+      final nameFunc = contractObj.function("name");
+      final symbolFunc = contractObj.function("symbol");
+      final decimalsFunc = contractObj.function("decimals");
+
+      final nameResult = await client.call(
+        contract: contractObj,
+        function: nameFunc,
+        params: [],
+      );
+
+      final symbolResult = await client.call(
+        contract: contractObj,
+        function: symbolFunc,
+        params: [],
+      );
+
+      final decimalsResult = await client.call(
+        contract: contractObj,
+        function: decimalsFunc,
+        params: [],
+      );
+
+      client.dispose();
+
+      setState(() {
+        nameController.text = nameResult.first.toString();
+        symbolController.text = symbolResult.first.toString();
+        decimalsController.text = decimalsResult.first.toString();
+      });
+
+    } catch (e) {
+      // ignore silent fail
+    }
+
+    setState(() => isFetching = false);
+  }
+
+  Future<void> pasteAddress() async {
+    final data = await Clipboard.getData('text/plain');
+
+    if (data != null) {
+      contractController.text = data.text ?? "";
+    }
+  }
 
   Future<void> addToken() async {
 
@@ -44,7 +138,7 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
         "name": name,
         "symbol": symbol,
         "decimals": decimals.isEmpty ? "18" : decimals,
-        "network": widget.network,
+        "network": selectedNetwork,
       });
 
       if (!mounted) return;
@@ -67,18 +161,18 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
   Widget buildInput({
     required TextEditingController controller,
     required String label,
-    TextInputType? type,
+    Widget? suffix,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return TextField(
       controller: controller,
-      keyboardType: type,
       style: TextStyle(
         color: isDark ? Colors.white : Colors.black,
       ),
       decoration: InputDecoration(
         labelText: label,
+        suffixIcon: suffix,
         filled: true,
         fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
         border: OutlineInputBorder(
@@ -89,24 +183,12 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
     );
   }
 
-  String getNetworkName() {
-    switch (widget.network) {
-      case "Ethereum":
-        return "Ethereum (ETH)";
-      case "Polygon":
-        return "Polygon (POL)";
-      case "BSC":
-      default:
-        return "BNB Smart Chain (BNB)";
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Custom Token"),
+        title: const Text("Add Crypto"),
       ),
 
       body: Padding(
@@ -114,32 +196,47 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
         child: Column(
           children: [
 
-            // 🔥 NETWORK LABEL (Trust Style)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                vertical: 8,
-                horizontal: 14,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3375BB).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                getNetworkName(),
-                style: const TextStyle(
-                  color: Color(0xFF3375BB),
-                  fontWeight: FontWeight.w600,
+            // 🔥 NETWORK DROPDOWN
+            DropdownButtonFormField<String>(
+              value: selectedNetwork,
+              items: const [
+                DropdownMenuItem(value: "BSC", child: Text("BSC")),
+                DropdownMenuItem(value: "Ethereum", child: Text("Ethereum")),
+                DropdownMenuItem(value: "Polygon", child: Text("Polygon")),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    selectedNetwork = val;
+                  });
+                }
+              },
+              decoration: InputDecoration(
+                labelText: "Network",
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
 
-            // 🔥 INPUTS
+            // 🔥 CONTRACT + PASTE
             buildInput(
               controller: contractController,
               label: "Contract Address",
+              suffix: IconButton(
+                icon: const Icon(Icons.paste),
+                onPressed: pasteAddress,
+              ),
             ),
+
+            if (isFetching)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: LinearProgressIndicator(),
+              ),
 
             const SizedBox(height: 15),
 
@@ -159,13 +256,11 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
 
             buildInput(
               controller: decimalsController,
-              label: "Decimals (Default 18)",
-              type: TextInputType.number,
+              label: "Decimals",
             ),
 
             const Spacer(),
 
-            // 🔥 BUTTON
             ElevatedButton(
               onPressed: isLoading ? null : addToken,
               style: ElevatedButton.styleFrom(
@@ -175,7 +270,7 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
-                      "Add Token",
+                      "Add Crypto",
                       style: TextStyle(color: Colors.white),
                     ),
             ),

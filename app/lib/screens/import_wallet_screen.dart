@@ -99,6 +99,7 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
       MaterialPageRoute(
         builder: (_) => AppShell(
           walletAddress: wallet["address"]!,
+          network: "BSC", // DEFAULT FIX
         ),
       ),
       (_) => false,

@@ -1,13 +1,13 @@
+// app/lib/screens/wallet_home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // 🔥 NEW
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
-import 'seed_phrase_screen.dart';
-import 'import_wallet_screen.dart';
 import 'add_token_screen.dart';
 
 class WalletHomeScreen extends StatefulWidget {
@@ -121,18 +121,13 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     setState(() => isLoadingTokens = true);
 
     try {
-      final List<Map<String, dynamic>> defaultTokens =
-          List<Map<String, dynamic>>.from(
-              WalletService.getDefaultTokens(widget.network));
+      final defaultTokens = List<Map<String, dynamic>>.from(
+          WalletService.getDefaultTokens(widget.network));
 
-      final List<Map<String, dynamic>> customTokens =
-          List<Map<String, dynamic>>.from(
-              await StorageService.getTokensByNetwork(widget.network));
+      final customTokens = List<Map<String, dynamic>>.from(
+          await StorageService.getTokensByNetwork(widget.network));
 
-      final List<Map<String, dynamic>> merged = [
-        ...defaultTokens,
-        ...customTokens
-      ];
+      final merged = [...defaultTokens, ...customTokens];
 
       Map<String, String> balances = {};
 
@@ -236,34 +231,55 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 FINAL SVG ICON SYSTEM
+  // 🔥 PRO ICON SYSTEM
   Widget buildTokenItem(Map<String, dynamic> token) {
 
-    final symbol = (token["symbol"] ?? "").toString().toLowerCase();
-    final iconPath = "assets/tokens/$symbol.svg";
+    final symbol = (token["symbol"] ?? "").toString();
+    final isNative = token["isNative"] == true;
+    final contract = token["contract"]?.toString() ?? "";
 
-    final bal = tokenBalances[token["symbol"]] ?? "0.00";
+    final localPath = WalletService.resolveLocalIcon(symbol);
+
+    final fallbackUrl = WalletService.resolveFallbackIcon(
+      network: widget.network,
+      contract: contract,
+      isNative: isNative,
+    );
+
+    final bal = tokenBalances[symbol] ?? "0.00";
 
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.white,
         child: ClipOval(
           child: SvgPicture.asset(
-            iconPath,
+            localPath,
             width: 28,
             height: 28,
             fit: BoxFit.contain,
 
-            // 🔥 अगर SVG ना मिले तो fallback
-            placeholderBuilder: (context) => const Icon(
-              Icons.currency_bitcoin,
-              color: Color(0xFF3375BB),
-            ),
+            // 🔥 अगर local SVG fail
+            errorBuilder: (context, error, stackTrace) {
+              return Image.network(
+                fallbackUrl,
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+
+                // 🔥 अगर CDN भी fail
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.currency_bitcoin,
+                    color: Color(0xFF3375BB),
+                  );
+                },
+              );
+            },
           ),
         ),
       ),
 
-      title: Text(token["symbol"] ?? ""),
+      title: Text(symbol),
       subtitle: Text(token["name"] ?? ""),
       trailing: Text(bal),
 

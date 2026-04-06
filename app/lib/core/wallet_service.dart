@@ -108,6 +108,20 @@ class WalletService {
   };
 
   // =========================================================
+  // 🔥 SYMBOL FIX MAP (VERY IMPORTANT)
+  // =========================================================
+
+  static const Map<String, String> symbolMap = {
+    "weth": "eth",
+    "matic": "pol",
+    "bnb": "bnb",
+    "eth": "eth",
+    "btc": "btc",
+    "usdt": "usdt",
+    "usdc": "usdc",
+  };
+
+  // =========================================================
   // 🔐 MNEMONIC
   // =========================================================
 
@@ -225,29 +239,19 @@ class WalletService {
   }
 
   // =========================================================
-  // 🔥 HELPERS
+  // 🔥 ICON RESOLVER (MAIN SYSTEM)
   // =========================================================
 
-  static String getSymbol(String network) {
-    return networks[network]?["symbol"] ?? "";
-  }
-
-  static List<Map<String, dynamic>> getDefaultTokens(String network) {
-    return defaultTokens[network] ?? [];
-  }
-
-  // =========================================================
-  // 🔥 LOCAL SVG ICON SYSTEM (FINAL)
-  // =========================================================
-
-  static String getLocalTokenIcon(String symbol) {
+  static String resolveLocalIcon(String symbol) {
     final clean = symbol.toLowerCase().trim();
 
-    return "assets/tokens/$clean.svg";
+    // 🔥 map fix
+    final mapped = symbolMap[clean] ?? clean;
+
+    return "assets/tokens/$mapped.svg";
   }
 
-  // 🔥 FUTURE SAFE (अगर कभी CDN fallback चाहिए)
-  static String getFallbackIcon({
+  static String resolveFallbackIcon({
     required String network,
     required String contract,
     required bool isNative,
@@ -261,5 +265,17 @@ class WalletService {
     final cleanContract = contract.toLowerCase();
 
     return "https://assets.trustwallet.com/blockchains/$folder/assets/$cleanContract/logo.png";
+  }
+
+  // =========================================================
+  // 🔥 HELPERS
+  // =========================================================
+
+  static String getSymbol(String network) {
+    return networks[network]?["symbol"] ?? "";
+  }
+
+  static List<Map<String, dynamic>> getDefaultTokens(String network) {
+    return defaultTokens[network] ?? [];
   }
 }

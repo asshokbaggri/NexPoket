@@ -1,7 +1,7 @@
-// app/lib/screens/wallet_home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // 🔥 NEW
+
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
 import 'send_screen.dart';
@@ -116,7 +116,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     }
   }
 
-  // 🔥 FIXED TOKEN LOADER (NO TYPE ERROR)
   Future<void> loadTokens() async {
 
     setState(() => isLoadingTokens = true);
@@ -237,28 +236,37 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 TOKEN UI FIXED
+  // 🔥 FINAL SVG ICON SYSTEM
   Widget buildTokenItem(Map<String, dynamic> token) {
 
-    final isNative = token["isNative"] == true;
-    final contract = token["contract"]?.toString() ?? "";
-
-    final iconUrl = WalletService.getTokenIcon(
-      network: widget.network,
-      contract: contract,
-      isNative: isNative,
-    );
+    final symbol = (token["symbol"] ?? "").toString().toLowerCase();
+    final iconPath = "assets/tokens/$symbol.svg";
 
     final bal = tokenBalances[token["symbol"]] ?? "0.00";
 
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.white,
-        backgroundImage: NetworkImage(iconUrl),
+        child: ClipOval(
+          child: SvgPicture.asset(
+            iconPath,
+            width: 28,
+            height: 28,
+            fit: BoxFit.contain,
+
+            // 🔥 अगर SVG ना मिले तो fallback
+            placeholderBuilder: (context) => const Icon(
+              Icons.currency_bitcoin,
+              color: Color(0xFF3375BB),
+            ),
+          ),
+        ),
       ),
+
       title: Text(token["symbol"] ?? ""),
       subtitle: Text(token["name"] ?? ""),
       trailing: Text(bal),
+
       onTap: () {
         Navigator.push(
           context,
@@ -298,7 +306,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
           padding: const EdgeInsets.all(20),
           children: [
 
-            // 🔥 BALANCE
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -327,7 +334,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 ADDRESS
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -353,7 +359,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
             const SizedBox(height: 25),
 
-            // 🔥 ACTIONS
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -384,7 +389,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
             const SizedBox(height: 30),
 
-            // 🔥 HEADER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

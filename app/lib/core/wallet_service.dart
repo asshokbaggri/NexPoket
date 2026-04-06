@@ -32,7 +32,7 @@ class WalletService {
     },
   };
 
-  // 🔥 DEFAULT TOKENS (VERY IMPORTANT 🔥)
+  // 🔥 DEFAULT TOKENS
   static const Map<String, List<Map<String, dynamic>>> defaultTokens = {
     "BSC": [
       {
@@ -107,7 +107,10 @@ class WalletService {
     ],
   };
 
-  // 🔐 GENERATE MNEMONIC
+  // =========================================================
+  // 🔐 MNEMONIC
+  // =========================================================
+
   static String generateMnemonic() {
     String mnemonic;
 
@@ -118,12 +121,14 @@ class WalletService {
     return mnemonic;
   }
 
-  // ✅ VALIDATE
   static bool validateMnemonic(String mnemonic) {
     return bip39.validateMnemonic(mnemonic);
   }
 
+  // =========================================================
   // 🔥 CREATE WALLET
+  // =========================================================
+
   static Future<Map<String, String>> createWallet(String mnemonic) async {
 
     final seed = bip39.mnemonicToSeed(mnemonic);
@@ -150,7 +155,10 @@ class WalletService {
     };
   }
 
-  // 🔥 GET NATIVE BALANCE
+  // =========================================================
+  // 💰 BALANCE
+  // =========================================================
+
   static Future<String> getBalance(String address, String network) async {
     try {
       final rpc = networks[network]?["rpc"];
@@ -158,7 +166,6 @@ class WalletService {
       if (rpc == null) return "0.00";
 
       final client = Web3Client(rpc, Client());
-
       final ethAddress = EthereumAddress.fromHex(address);
 
       final balance = await client.getBalance(ethAddress);
@@ -174,7 +181,6 @@ class WalletService {
     }
   }
 
-  // 🔥 ERC20 TOKEN BALANCE
   static Future<String> getTokenBalance({
     required String address,
     required String contract,
@@ -207,7 +213,6 @@ class WalletService {
       client.dispose();
 
       final BigInt raw = result.first;
-
       final divisor = BigInt.from(10).pow(decimals);
 
       final double value = raw / divisor;
@@ -219,28 +224,42 @@ class WalletService {
     }
   }
 
-  // 🔥 GET SYMBOL
+  // =========================================================
+  // 🔥 HELPERS
+  // =========================================================
+
   static String getSymbol(String network) {
     return networks[network]?["symbol"] ?? "";
   }
 
-  // 🔥 GET DEFAULT TOKENS
   static List<Map<String, dynamic>> getDefaultTokens(String network) {
     return defaultTokens[network] ?? [];
   }
 
-  // 🔥 TOKEN ICON (TRUST WALLET CDN)
-  static String getTokenIcon({
+  // =========================================================
+  // 🔥 LOCAL SVG ICON SYSTEM (FINAL)
+  // =========================================================
+
+  static String getLocalTokenIcon(String symbol) {
+    final clean = symbol.toLowerCase().trim();
+
+    return "assets/tokens/$clean.svg";
+  }
+
+  // 🔥 FUTURE SAFE (अगर कभी CDN fallback चाहिए)
+  static String getFallbackIcon({
     required String network,
     required String contract,
     required bool isNative,
   }) {
     final folder = networks[network]?["chainFolder"] ?? "";
 
-    if (isNative) {
+    if (isNative || contract.isEmpty) {
       return "https://assets.trustwallet.com/blockchains/$folder/info/logo.png";
     }
 
-    return "https://assets.trustwallet.com/blockchains/$folder/assets/$contract/logo.png";
+    final cleanContract = contract.toLowerCase();
+
+    return "https://assets.trustwallet.com/blockchains/$folder/assets/$cleanContract/logo.png";
   }
 }

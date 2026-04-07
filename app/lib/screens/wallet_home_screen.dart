@@ -9,6 +9,8 @@ import '../core/wallet_service.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
 import 'add_token_screen.dart';
+import 'seed_phrase_screen.dart';
+import 'import_wallet_screen.dart';
 
 class WalletHomeScreen extends StatefulWidget {
   final String walletAddress;
@@ -58,9 +60,12 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   }
 
   Future<void> initAll() async {
-    await loadWallets();
-    await loadBalance();
-    await loadTokens();
+    loadWallets();
+
+    Future.wait([
+      loadBalance(),
+      loadTokens(),
+    ]);
   }
 
   Future<void> loadWallets() async {
@@ -194,7 +199,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       currentAddress = address;
     });
 
-    await initAll();
+    initAll();
 
     if (mounted) Navigator.pop(context);
   }
@@ -231,7 +236,62 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     );
   }
 
-  // 🔥 PRO ICON SYSTEM
+  void showAddWalletOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              const Text(
+                "Add Wallet",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 20),
+
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline,
+                    color: Color(0xFF3375BB)),
+                title: const Text("Create New Wallet"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SeedPhraseScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.download,
+                    color: Color(0xFF3375BB)),
+                title: const Text("Import Wallet"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ImportWalletScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget buildTokenItem(Map<String, dynamic> token) {
 
     final symbol = (token["symbol"] ?? "").toString();
@@ -257,16 +317,12 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             width: 28,
             height: 28,
             fit: BoxFit.contain,
-
-            // 🔥 अगर local SVG fail
             errorBuilder: (context, error, stackTrace) {
               return Image.network(
                 fallbackUrl,
                 width: 28,
                 height: 28,
                 fit: BoxFit.cover,
-
-                // 🔥 अगर CDN भी fail
                 errorBuilder: (context, error, stackTrace) {
                   return const Icon(
                     Icons.currency_bitcoin,
@@ -278,11 +334,9 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
           ),
         ),
       ),
-
       title: Text(symbol),
       subtitle: Text(token["name"] ?? ""),
       trailing: Text(bal),
-
       onTap: () {
         Navigator.push(
           context,
@@ -302,25 +356,51 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          onTap: showWalletList,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(walletName),
-              const SizedBox(width: 5),
-              const Icon(Icons.keyboard_arrow_down),
-            ],
-          ),
-        ),
-      ),
-
       body: RefreshIndicator(
         onRefresh: initAll,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+
+            // 🔥 SCROLLABLE HEADER (REPLACED APPBAR)
+            Row(
+              children: [
+
+                // LEFT SPACE (balance ke liye)
+                const SizedBox(width: 40),
+
+                // CENTER WALLET NAME
+                Expanded(
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: showWalletList,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            walletName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          const Icon(Icons.keyboard_arrow_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // RIGHT + BUTTON
+                GestureDetector(
+                  onTap: showAddWalletOptions,
+                  child: const Icon(Icons.add),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
 
             Container(
               padding: const EdgeInsets.all(20),
@@ -423,7 +503,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                       ),
                     );
 
-                    await loadTokens();
+                    loadTokens();
                   },
                   child: const Text("Add Crypto"),
                 ),
@@ -432,7 +512,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
             const SizedBox(height: 10),
 
-            if (isLoadingTokens)
+            if (isLoadingTokens && tokens.isEmpty)
               const Center(child: CircularProgressIndicator())
             else
               ...tokens.map((t) => buildTokenItem(t)).toList(),

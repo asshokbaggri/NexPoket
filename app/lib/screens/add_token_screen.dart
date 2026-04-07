@@ -44,7 +44,31 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
     });
   }
 
-  // 🔥 AUTO FETCH TOKEN DETAILS (ERC20)
+  // 🔥 NETWORK ICONS
+  Widget getNetworkIcon(String network) {
+    switch (network) {
+      case "Ethereum":
+        return const CircleAvatar(
+          radius: 10,
+          backgroundImage: NetworkImage(
+              "https://cryptologos.cc/logos/ethereum-eth-logo.png"),
+        );
+      case "Polygon":
+        return const CircleAvatar(
+          radius: 10,
+          backgroundImage: NetworkImage(
+              "https://cryptologos.cc/logos/polygon-matic-logo.png"),
+        );
+      default:
+        return const CircleAvatar(
+          radius: 10,
+          backgroundImage: NetworkImage(
+              "https://cryptologos.cc/logos/bnb-bnb-logo.png"),
+        );
+    }
+  }
+
+  // 🔥 AUTO FETCH TOKEN DETAILS
   Future<void> fetchTokenDetails() async {
     final contract = contractController.text.trim();
 
@@ -71,25 +95,21 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
 
       final contractObj = DeployedContract(abi, contractAddr);
 
-      final nameFunc = contractObj.function("name");
-      final symbolFunc = contractObj.function("symbol");
-      final decimalsFunc = contractObj.function("decimals");
-
       final nameResult = await client.call(
         contract: contractObj,
-        function: nameFunc,
+        function: contractObj.function("name"),
         params: [],
       );
 
       final symbolResult = await client.call(
         contract: contractObj,
-        function: symbolFunc,
+        function: contractObj.function("symbol"),
         params: [],
       );
 
       final decimalsResult = await client.call(
         contract: contractObj,
-        function: decimalsFunc,
+        function: contractObj.function("decimals"),
         params: [],
       );
 
@@ -101,9 +121,7 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
         decimalsController.text = decimalsResult.first.toString();
       });
 
-    } catch (e) {
-      // ignore silent fail
-    }
+    } catch (e) {}
 
     setState(() => isFetching = false);
   }
@@ -176,7 +194,7 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
         filled: true,
         fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
       ),
@@ -196,14 +214,21 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
         child: Column(
           children: [
 
-            // 🔥 NETWORK DROPDOWN
+            // 🔥 NETWORK DROPDOWN WITH ICON
             DropdownButtonFormField<String>(
               value: selectedNetwork,
-              items: const [
-                DropdownMenuItem(value: "BSC", child: Text("BSC")),
-                DropdownMenuItem(value: "Ethereum", child: Text("Ethereum")),
-                DropdownMenuItem(value: "Polygon", child: Text("Polygon")),
-              ],
+              items: ["BSC", "Ethereum", "Polygon"].map((net) {
+                return DropdownMenuItem(
+                  value: net,
+                  child: Row(
+                    children: [
+                      getNetworkIcon(net),
+                      const SizedBox(width: 10),
+                      Text(net),
+                    ],
+                  ),
+                );
+              }).toList(),
               onChanged: (val) {
                 if (val != null) {
                   setState(() {
@@ -213,22 +238,34 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
               },
               decoration: InputDecoration(
                 labelText: "Network",
-                filled: true,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // 🔥 CONTRACT + PASTE
+            // 🔥 CONTRACT + PREMIUM PASTE BUTTON
             buildInput(
               controller: contractController,
               label: "Contract Address",
-              suffix: IconButton(
-                icon: const Icon(Icons.paste),
-                onPressed: pasteAddress,
+              suffix: GestureDetector(
+                onTap: pasteAddress,
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3375BB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    "Paste",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
               ),
             ),
 
@@ -266,12 +303,16 @@ class _AddTokenScreenState extends State<AddTokenScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 55),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
                       "Add Crypto",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
             ),
           ],

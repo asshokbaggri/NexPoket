@@ -1,7 +1,10 @@
+// app/lib/screens/receive_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
@@ -73,6 +76,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     }
   }
 
+  // 🔥 TOKEN SELECTOR WITH ICON
   Widget buildTokenSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -84,9 +88,25 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         value: selectedToken,
         underline: const SizedBox(),
         items: tokens.map((t) {
+
+          final iconPath =
+              WalletService.resolveLocalIcon(t["symbol"]);
+
           return DropdownMenuItem(
             value: t,
-            child: Text("${t["symbol"]}"),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  iconPath,
+                  width: 20,
+                  height: 20,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.currency_bitcoin),
+                ),
+                const SizedBox(width: 8),
+                Text("${t["symbol"]}"),
+              ],
+            ),
           );
         }).toList(),
         onChanged: (val) {
@@ -127,7 +147,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 buildTokenSelector(),
                 const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 8, horizontal: 12),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(20),
@@ -142,7 +163,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
             const SizedBox(height: 30),
 
-            // 🔥 QR CARD
+            // 🔥 QR CARD (PREMIUM)
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -164,7 +185,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
             const SizedBox(height: 25),
 
-            // 🔹 ADDRESS BOX
+            // 🔥 ADDRESS BOX
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -184,21 +205,20 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 ACTION BUTTONS
+            // 🔥 ACTION BUTTONS (PREMIUM STYLE)
             Row(
               children: [
 
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: () => copyAddress(context),
-                    icon: const Icon(Icons.copy, color: Colors.white),
-                    label: const Text(
-                      "Copy",
-                      style: TextStyle(color: Colors.white),
-                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3375BB),
                       minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      "Copy",
+                      style: TextStyle(color: Colors.white),
                     ),
                   ),
                 ),
@@ -206,16 +226,15 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 const SizedBox(width: 10),
 
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: shareAddress,
-                    icon: const Icon(Icons.share, color: Color(0xFF3375BB)),
-                    label: const Text(
-                      "Share",
-                      style: TextStyle(color: Color(0xFF3375BB)),
-                    ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFF3375BB)),
                       minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      "Share",
+                      style: TextStyle(color: Color(0xFF3375BB)),
                     ),
                   ),
                 ),

@@ -1,7 +1,10 @@
 // app/lib/core/app_shell.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 import '../core/storage_service.dart';
+import '../core/wallet_service.dart';
 import '../screens/wallet_home_screen.dart';
 import '../screens/discover_screen.dart';
 import '../screens/activity_screen.dart';
@@ -9,12 +12,12 @@ import '../screens/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
   final String walletAddress;
-  final String network; // 🔥 NEW
+  final String network;
 
   const AppShell({
     super.key,
     required this.walletAddress,
-    required this.network, // 🔥 NEW
+    required this.network,
   });
 
   @override
@@ -39,16 +42,23 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
 
-    // 🔥 USE PASSED NETWORK (FIX)
     selectedNetwork = widget.network;
 
+    _buildScreens();
+  }
+
+  // 🔥 BUILD SCREENS FIX (ActivityScreen FIXED)
+  void _buildScreens() {
     _screens = [
       WalletHomeScreen(
         walletAddress: widget.walletAddress,
         network: selectedNetwork,
       ),
       const DiscoverScreen(),
-      const ActivityScreen(),
+      ActivityScreen(
+        address: widget.walletAddress,
+        network: selectedNetwork,
+      ),
       const SettingsScreen(),
     ];
   }
@@ -59,31 +69,25 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       selectedNetwork = network;
 
-      _screens[0] = WalletHomeScreen(
-        walletAddress: widget.walletAddress,
-        network: selectedNetwork,
-      );
+      _buildScreens(); // 🔥 rebuild all screens properly
     });
   }
 
-  String getNetworkLabel(String net) {
-    switch (net) {
-      case "BSC":
-        return "BNB";
-      case "Ethereum":
-        return "ETH";
-      case "Polygon":
-        return "POL";
-      default:
-        return net;
-    }
+  String getSymbol(String net) {
+    return WalletService.getSymbol(net);
+  }
+
+  String getIcon(String net) {
+    return WalletService.resolveLocalIcon(getSymbol(net));
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
+      // 🔥 TOP NETWORK SELECTOR WITH ICON
       appBar: AppBar(
         title: _currentIndex == 0
             ? Row(
@@ -93,7 +97,7 @@ class _AppShellState extends State<AppShell> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       color: Colors.grey.withOpacity(0.1),
                     ),
                     child: DropdownButton<String>(
@@ -101,20 +105,27 @@ class _AppShellState extends State<AppShell> {
                       underline: const SizedBox(),
                       icon: const Icon(Icons.keyboard_arrow_down),
 
-                      items: const [
-                        DropdownMenuItem(
-                          value: "BSC",
-                          child: Text("BNB"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Ethereum",
-                          child: Text("ETH"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Polygon",
-                          child: Text("POL"),
-                        ),
-                      ],
+                      items: ["BSC", "Ethereum", "Polygon"].map((net) {
+
+                        final iconPath = getIcon(net);
+
+                        return DropdownMenuItem(
+                          value: net,
+                          child: Row(
+                            children: [
+                              SvgPicture.asset(
+                                iconPath,
+                                width: 20,
+                                height: 20,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.currency_bitcoin),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(getSymbol(net)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
 
                       onChanged: (val) {
                         if (val != null) changeNetwork(val);
@@ -130,18 +141,34 @@ class _AppShellState extends State<AppShell> {
           ? const Center(child: CircularProgressIndicator())
           : _screens[_currentIndex],
 
+      // 🔥 BOTTOM NAV WITH BETTER ICONS
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
+
+        selectedItemColor: const Color(0xFF3375BB),
+
         items: const [
           BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet), label: "Wallet"),
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            activeIcon: Icon(Icons.account_balance_wallet),
+            label: "Wallet",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.explore), label: "Discover"),
+            icon: Icon(Icons.explore_outlined),
+            activeIcon: Icon(Icons.explore),
+            label: "Discover",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart), label: "Activity"),
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: "Activity",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.settings), label: "Settings"),
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: "Settings",
+          ),
         ],
       ),
     );

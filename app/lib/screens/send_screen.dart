@@ -1,7 +1,11 @@
+// app/lib/screens/send_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
@@ -25,6 +29,7 @@ class _SendScreenState extends State<SendScreen> {
 
   bool isLoading = false;
   bool isScanning = false;
+  bool isInitializing = true; // 🔥 FIX
 
   String selectedNetwork = "BSC";
   String symbol = "BNB";
@@ -34,6 +39,8 @@ class _SendScreenState extends State<SendScreen> {
   List<Map<String, dynamic>> tokens = [];
   Map<String, dynamic>? selectedToken;
 
+  double currentBalance = 0;
+
   @override
   void initState() {
     super.initState();
@@ -41,12 +48,18 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   Future<void> initNetwork() async {
+
     final net = await StorageService.getSelectedNetwork();
 
     final defaultTokens = WalletService.getDefaultTokens(net);
     final customTokens = await StorageService.getTokens(net);
 
     final allTokens = [...defaultTokens, ...customTokens];
+
+    final bal = await WalletService.getBalance(
+      widget.walletAddress,
+      net,
+    );
 
     setState(() {
       selectedNetwork = net;
@@ -55,6 +68,9 @@ class _SendScreenState extends State<SendScreen> {
 
       symbol = selectedToken!["symbol"];
       chainId = getChainId(net);
+      currentBalance = double.tryParse(bal) ?? 0;
+
+      isInitializing = false; // 🔥 IMPORTANT
     });
   }
 
@@ -67,6 +83,19 @@ class _SendScreenState extends State<SendScreen> {
       case "BSC":
       default:
         return 56;
+    }
+  }
+
+  void setMaxAmount() {
+    if (currentBalance <= 0) return;
+    final max = currentBalance * 0.98;
+    amountController.text = max.toStringAsFixed(6);
+  }
+
+  Future<void> pasteAddress() async {
+    final data = await Clipboard.getData('text/plain');
+    if (data != null) {
+      addressController.text = data.text ?? "";
     }
   }
 
@@ -98,70 +127,27 @@ class _SendScreenState extends State<SendScreen> {
       final privateKey =
           await StorageService.getPrivateKey(widget.walletAddress);
 
-      if (privateKey == null) {
-        throw Exception("Wallet not found");
-      }
-
       final rpc = WalletService.networks[selectedNetwork]!["rpc"]!;
       final client = Web3Client(rpc, Client());
 
-      final credentials = EthPrivateKey.fromHex(privateKey);
-      final senderAddress = await credentials.extractAddress();
-
+      final credentials = EthPrivateKey.fromHex(privateKey!);
       final receiver = EthereumAddress.fromHex(toAddress);
 
-      // 🔥 NATIVE TOKEN ONLY (ERC20 NEXT STEP)
-      if (selectedToken!["type"] == "native") {
-
-        final balance = await client.getBalance(senderAddress);
-        final balanceEth = balance.getValueInUnit(EtherUnit.ether);
-
-        final gasPrice = await client.getGasPrice();
-
-        BigInt gasLimit;
-        try {
-          gasLimit = await client.estimateGas(
-            sender: senderAddress,
-            to: receiver,
-            value: EtherAmount.fromUnitAndValue(
-              EtherUnit.ether,
-              amount,
-            ),
-          );
-        } catch (_) {
-          gasLimit = BigInt.from(21000);
-        }
-
-        final gasCostWei = gasPrice.getInWei * gasLimit;
-        final gasCostEth =
-            EtherAmount.inWei(gasCostWei).getValueInUnit(EtherUnit.ether);
-
-        final totalNeeded = amount + gasCostEth;
-
-        if (balanceEth < totalNeeded) {
-          throw Exception("Insufficient balance");
-        }
-
-        final txHash = await client.sendTransaction(
-          credentials,
-          Transaction(
-            to: receiver,
-            value: EtherAmount.fromUnitAndValue(
-              EtherUnit.ether,
-              amount,
-            ),
-            gasPrice: gasPrice,
-            maxGas: gasLimit.toInt(),
+      final txHash = await client.sendTransaction(
+        credentials,
+        Transaction(
+          to: receiver,
+          value: EtherAmount.fromUnitAndValue(
+            EtherUnit.ether,
+            amount,
           ),
-          chainId: chainId,
-        );
+        ),
+        chainId: chainId,
+      );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("TX Sent: $txHash")),
-        );
-      } else {
-        throw Exception("Token transfer coming next update 🚀");
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("TX Sent: $txHash")),
+      );
 
       Navigator.pop(context);
 
@@ -215,9 +201,25 @@ class _SendScreenState extends State<SendScreen> {
         isExpanded: true,
         underline: const SizedBox(),
         items: tokens.map((t) {
+
+          final iconPath =
+              WalletService.resolveLocalIcon(t["symbol"]);
+
           return DropdownMenuItem(
             value: t,
-            child: Text("${t["symbol"]}"),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  iconPath,
+                  width: 22,
+                  height: 22,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.currency_bitcoin),
+                ),
+                const SizedBox(width: 10),
+                Text("${t["symbol"]}"),
+              ],
+            ),
           );
         }).toList(),
         onChanged: (val) {
@@ -234,6 +236,12 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+    if (isInitializing) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -273,24 +281,69 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
+            // 🔥 ADDRESS INPUT (FIXED BUTTON STYLE)
             TextField(
               controller: addressController,
               decoration: InputDecoration(
                 labelText: "Recipient Address",
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.qr_code_scanner),
-                  onPressed: openScanner,
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    GestureDetector(
+                      onTap: pasteAddress,
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: Text(
+                          "Paste",
+                          style: TextStyle(
+                            color: Color(0xFF3375BB),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_scanner),
+                      onPressed: openScanner,
+                    ),
+                  ],
                 ),
               ),
             ),
 
             const SizedBox(height: 20),
 
+            // 🔥 AMOUNT INPUT (FIXED BUTTON STYLE)
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: "Amount ($symbol)",
+                suffixIcon: GestureDetector(
+                  onTap: setMaxAmount,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 10),
+                    child: Text(
+                      "Max",
+                      style: TextStyle(
+                        color: Color(0xFF3375BB),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Balance: ${currentBalance.toStringAsFixed(6)} $symbol",
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
 
@@ -304,7 +357,10 @@ class _SendScreenState extends State<SendScreen> {
               ),
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Send"),
+                  : const Text(
+                      "Send",
+                      style: TextStyle(color: Colors.white),
+                    ),
             ),
           ],
         ),

@@ -40,6 +40,10 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   Map<String, String> tokenBalances = {};
   bool isLoadingTokens = true;
 
+  // 🔥 NEW
+  Map<String, dynamic> livePrices = {};
+  double totalPortfolio = 0;
+
   @override
   void initState() {
     super.initState();
@@ -62,10 +66,12 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   Future<void> initAll() async {
     loadWallets();
 
-    Future.wait([
+    await Future.wait([
       loadBalance(),
       loadTokens(),
     ]);
+
+    await loadPrices(); // 🔥 NEW
   }
 
   Future<void> loadWallets() async {
@@ -184,6 +190,27 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     }
   }
 
+  // 🔥 LIVE PRICE LOAD
+  Future<void> loadPrices() async {
+
+    final symbols = tokens.map((e) => e["symbol"].toString()).toList();
+
+    final prices = await WalletService.getLivePrices(symbols);
+
+    final total = WalletService.calculatePortfolio(
+      tokens,
+      tokenBalances,
+      prices,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      livePrices = prices;
+      totalPortfolio = total;
+    });
+  }
+
   void copyAddress() {
     Clipboard.setData(ClipboardData(text: currentAddress));
 
@@ -295,18 +322,14 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   Widget buildTokenItem(Map<String, dynamic> token) {
 
     final symbol = (token["symbol"] ?? "").toString();
-    final isNative = token["isNative"] == true;
-    final contract = token["contract"]?.toString() ?? "";
+    final bal = double.tryParse(tokenBalances[symbol] ?? "0") ?? 0;
+
+    final price = livePrices[symbol]?["price"] ?? 0;
+    final change = livePrices[symbol]?["change"] ?? 0;
+
+    final usdValue = bal * price;
 
     final localPath = WalletService.resolveLocalIcon(symbol);
-
-    final fallbackUrl = WalletService.resolveFallbackIcon(
-      network: widget.network,
-      contract: contract,
-      isNative: isNative,
-    );
-
-    final bal = tokenBalances[symbol] ?? "0.00";
 
     return ListTile(
       leading: CircleAvatar(
@@ -317,26 +340,19 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             width: 28,
             height: 28,
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return Image.network(
-                fallbackUrl,
-                width: 28,
-                height: 28,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    Icons.currency_bitcoin,
-                    color: Color(0xFF3375BB),
-                  );
-                },
-              );
-            },
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.currency_bitcoin),
           ),
         ),
       ),
       title: Text(symbol),
-      subtitle: Text(token["name"] ?? ""),
-      trailing: Text(bal),
+      subtitle: Text(
+        "\$${usdValue.toStringAsFixed(2)}  •  ${change.toStringAsFixed(2)}%",
+        style: TextStyle(
+          color: change >= 0 ? Colors.green : Colors.red,
+        ),
+      ),
+      trailing: Text(bal.toStringAsFixed(6)),
       onTap: () {
         Navigator.push(
           context,
@@ -362,14 +378,9 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
           padding: const EdgeInsets.all(20),
           children: [
 
-            // 🔥 SCROLLABLE HEADER (REPLACED APPBAR)
             Row(
               children: [
-
-                // LEFT SPACE (balance ke liye)
                 const SizedBox(width: 40),
-
-                // CENTER WALLET NAME
                 Expanded(
                   child: Center(
                     child: GestureDetector(
@@ -377,13 +388,10 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            walletName,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          Text(walletName,
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold)),
                           const SizedBox(width: 5),
                           const Icon(Icons.keyboard_arrow_down),
                         ],
@@ -391,8 +399,6 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                     ),
                   ),
                 ),
-
-                // RIGHT + BUTTON
                 GestureDetector(
                   onTap: showAddWalletOptions,
                   child: const Icon(Icons.add),
@@ -411,19 +417,27 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Total Balance",
+
+                  const Text("Total Portfolio",
                       style: TextStyle(color: Colors.white70)),
+
                   const SizedBox(height: 8),
-                  isLoadingBalance
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          "$balance $symbol",
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+
+                  Text(
+                    "\$${totalPortfolio.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  Text(
+                    "$balance $symbol",
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ),
@@ -439,10 +453,8 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      currentAddress,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(currentAddress,
+                        overflow: TextOverflow.ellipsis),
                   ),
                   GestureDetector(
                     onTap: copyAddress,
@@ -489,20 +501,18 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Your Assets",
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () async {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => AddTokenScreen(
-                          network: widget.network,
-                        ),
+                        builder: (_) =>
+                            AddTokenScreen(network: widget.network),
                       ),
                     );
-
                     loadTokens();
                   },
                   child: const Text("Add Crypto"),

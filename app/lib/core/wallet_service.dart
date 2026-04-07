@@ -1,5 +1,7 @@
 // app/lib/core/wallet_service.dart
 
+import 'dart:convert';
+
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:web3dart/web3dart.dart';
 import 'package:bip32/bip32.dart' as bip32;
@@ -35,80 +37,24 @@ class WalletService {
   // 🔥 DEFAULT TOKENS
   static const Map<String, List<Map<String, dynamic>>> defaultTokens = {
     "BSC": [
-      {
-        "name": "BNB",
-        "symbol": "BNB",
-        "contract": "",
-        "decimals": 18,
-        "isNative": true,
-      },
-      {
-        "name": "Tether USD",
-        "symbol": "USDT",
-        "contract": "0x55d398326f99059fF775485246999027B3197955",
-        "decimals": 18,
-        "isNative": false,
-      },
-      {
-        "name": "USD Coin",
-        "symbol": "USDC",
-        "contract": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
-        "decimals": 18,
-        "isNative": false,
-      },
+      {"name": "BNB","symbol": "BNB","contract": "","decimals": 18,"isNative": true},
+      {"name": "Tether USD","symbol": "USDT","contract": "0x55d398326f99059fF775485246999027B3197955","decimals": 18,"isNative": false},
+      {"name": "USD Coin","symbol": "USDC","contract": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d","decimals": 18,"isNative": false},
     ],
-
     "Ethereum": [
-      {
-        "name": "Ethereum",
-        "symbol": "ETH",
-        "contract": "",
-        "decimals": 18,
-        "isNative": true,
-      },
-      {
-        "name": "Tether USD",
-        "symbol": "USDT",
-        "contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        "decimals": 6,
-        "isNative": false,
-      },
-      {
-        "name": "USD Coin",
-        "symbol": "USDC",
-        "contract": "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        "decimals": 6,
-        "isNative": false,
-      },
+      {"name": "Ethereum","symbol": "ETH","contract": "","decimals": 18,"isNative": true},
+      {"name": "Tether USD","symbol": "USDT","contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7","decimals": 6,"isNative": false},
+      {"name": "USD Coin","symbol": "USDC","contract": "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48","decimals": 6,"isNative": false},
     ],
-
     "Polygon": [
-      {
-        "name": "Polygon",
-        "symbol": "POL",
-        "contract": "",
-        "decimals": 18,
-        "isNative": true,
-      },
-      {
-        "name": "Tether USD",
-        "symbol": "USDT",
-        "contract": "0xc2132D05D31c914a87C6611C10748AaCBdEac2bA",
-        "decimals": 6,
-        "isNative": false,
-      },
-      {
-        "name": "USD Coin",
-        "symbol": "USDC",
-        "contract": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-        "decimals": 6,
-        "isNative": false,
-      },
+      {"name": "Polygon","symbol": "POL","contract": "","decimals": 18,"isNative": true},
+      {"name": "Tether USD","symbol": "USDT","contract": "0xc2132D05D31c914a87C6611C10748AaCBdEac2bA","decimals": 6,"isNative": false},
+      {"name": "USD Coin","symbol": "USDC","contract": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174","decimals": 6,"isNative": false},
     ],
   };
 
   // =========================================================
-  // 🔥 SYMBOL FIX MAP (VERY IMPORTANT)
+  // 🔥 SYMBOL FIX MAP
   // =========================================================
 
   static const Map<String, String> symbolMap = {
@@ -122,16 +68,71 @@ class WalletService {
   };
 
   // =========================================================
+  // 🔥 COINGECKO MAP (IMPORTANT)
+  // =========================================================
+
+  static const Map<String, String> coingeckoIds = {
+    "eth": "ethereum",
+    "bnb": "binancecoin",
+    "pol": "matic-network",
+    "usdt": "tether",
+    "usdc": "usd-coin",
+    "btc": "bitcoin",
+  };
+
+  // =========================================================
+  // 🔥 LIVE PRICE FETCH
+  // =========================================================
+
+  static Future<Map<String, dynamic>> getLivePrices(List<String> symbols) async {
+    try {
+      final ids = symbols.map((s) {
+        final clean = s.toLowerCase();
+        return coingeckoIds[clean] ?? clean;
+      }).toList();
+
+      final url = Uri.parse(
+        "https://api.coingecko.com/api/v3/simple/price"
+        "?ids=${ids.join(",")}"
+        "&vs_currencies=usd"
+        "&include_24hr_change=true",
+      );
+
+      final res = await Client().get(url);
+      final data = jsonDecode(res.body);
+
+      Map<String, dynamic> result = {};
+
+      for (var s in symbols) {
+        final clean = s.toLowerCase();
+        final id = coingeckoIds[clean];
+
+        if (id != null && data[id] != null) {
+          result[s] = {
+            "price": data[id]["usd"] ?? 0,
+            "change": data[id]["usd_24h_change"] ?? 0,
+          };
+        } else {
+          result[s] = {"price": 0, "change": 0};
+        }
+      }
+
+      return result;
+
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // =========================================================
   // 🔐 MNEMONIC
   // =========================================================
 
   static String generateMnemonic() {
     String mnemonic;
-
     do {
       mnemonic = bip39.generateMnemonic();
     } while (!bip39.validateMnemonic(mnemonic));
-
     return mnemonic;
   }
 
@@ -144,14 +145,11 @@ class WalletService {
   // =========================================================
 
   static Future<Map<String, String>> createWallet(String mnemonic) async {
-
     final seed = bip39.mnemonicToSeed(mnemonic);
     final root = bip32.BIP32.fromSeed(seed);
     final child = root.derivePath("m/44'/60'/0'/0/0");
 
-    final privateKeyBytes = child.privateKey!;
-    final privateKeyHex = HEX.encode(privateKeyBytes);
-
+    final privateKeyHex = HEX.encode(child.privateKey!);
     final credentials = EthPrivateKey.fromHex(privateKeyHex);
     final address = await credentials.extractAddress();
 
@@ -164,9 +162,7 @@ class WalletService {
       address: address.hex,
     );
 
-    return {
-      "address": address.hex,
-    };
+    return {"address": address.hex};
   }
 
   // =========================================================
@@ -176,19 +172,14 @@ class WalletService {
   static Future<String> getBalance(String address, String network) async {
     try {
       final rpc = networks[network]?["rpc"];
-
       if (rpc == null) return "0.00";
 
       final client = Web3Client(rpc, Client());
       final ethAddress = EthereumAddress.fromHex(address);
-
       final balance = await client.getBalance(ethAddress);
-
       client.dispose();
 
-      return balance
-          .getValueInUnit(EtherUnit.ether)
-          .toStringAsFixed(6);
+      return balance.getValueInUnit(EtherUnit.ether).toStringAsFixed(6);
 
     } catch (e) {
       return "0.00";
@@ -216,21 +207,18 @@ class WalletService {
       );
 
       final contractObj = DeployedContract(abi, contractAddr);
-      final balanceFunction = contractObj.function("balanceOf");
-
       final result = await client.call(
         contract: contractObj,
-        function: balanceFunction,
+        function: contractObj.function("balanceOf"),
         params: [userAddr],
       );
 
       client.dispose();
 
-      final BigInt raw = result.first;
+      final raw = result.first as BigInt;
       final divisor = BigInt.from(10).pow(decimals);
 
-      final double value = raw / divisor;
-
+      final value = raw / divisor;
       return value.toStringAsFixed(6);
 
     } catch (e) {
@@ -239,15 +227,34 @@ class WalletService {
   }
 
   // =========================================================
-  // 🔥 ICON RESOLVER (MAIN SYSTEM)
+  // 🔥 PORTFOLIO CALCULATOR
+  // =========================================================
+
+  static double calculatePortfolio(
+    List<Map<String, dynamic>> tokens,
+    Map<String, String> balances,
+    Map<String, dynamic> prices,
+  ) {
+    double total = 0;
+
+    for (var t in tokens) {
+      final symbol = t["symbol"];
+      final bal = double.tryParse(balances[symbol] ?? "0") ?? 0;
+      final price = prices[symbol]?["price"] ?? 0;
+
+      total += bal * price;
+    }
+
+    return total;
+  }
+
+  // =========================================================
+  // 🔥 ICON SYSTEM
   // =========================================================
 
   static String resolveLocalIcon(String symbol) {
     final clean = symbol.toLowerCase().trim();
-
-    // 🔥 map fix
     final mapped = symbolMap[clean] ?? clean;
-
     return "assets/tokens/$mapped.svg";
   }
 
@@ -268,7 +275,7 @@ class WalletService {
   }
 
   // =========================================================
-  // 🔥 HELPERS
+  // HELPERS
   // =========================================================
 
   static String getSymbol(String network) {

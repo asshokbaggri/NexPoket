@@ -68,32 +68,97 @@ class WalletService {
   };
 
   // =========================================================
-  // 🔥 COINGECKO MAP (IMPORTANT)
+  // 🔥 STATIC MAP (FAST TOKENS)
   // =========================================================
 
-  static const Map<String, String> coingeckoIds = {
+  static const Map<String, String> baseIds = {
     "eth": "ethereum",
     "bnb": "binancecoin",
     "pol": "matic-network",
     "usdt": "tether",
     "usdc": "usd-coin",
     "btc": "bitcoin",
+    "shib": "shiba-inu",
+    "trx": "tron",
+    "doge": "dogecoin",
+    "sol": "solana",
   };
 
   // =========================================================
-  // 🔥 LIVE PRICE FETCH
+  // 🔥 CACHE (AUTO MEMORY)
+  // =========================================================
+
+  static Map<String, String> dynamicIdCache = {};
+
+  // =========================================================
+  // 🔥 RESOLVE TOKEN ID (AUTO SEARCH)
+  // =========================================================
+
+  static Future<String?> resolveCoinGeckoId(String symbol) async {
+
+    final clean = symbol.toLowerCase();
+
+    // 1. static map
+    if (baseIds.containsKey(clean)) {
+      return baseIds[clean];
+    }
+
+    // 2. cache
+    if (dynamicIdCache.containsKey(clean)) {
+      return dynamicIdCache[clean];
+    }
+
+    try {
+      final url = Uri.parse(
+        "https://api.coingecko.com/api/v3/search?query=$clean",
+      );
+
+      final res = await Client().get(url);
+      final data = jsonDecode(res.body);
+
+      if (data["coins"] != null && data["coins"].isNotEmpty) {
+
+        final coin = data["coins"].firstWhere(
+          (c) => c["symbol"].toString().toLowerCase() == clean,
+          orElse: () => data["coins"][0],
+        );
+
+        final id = coin["id"];
+
+        dynamicIdCache[clean] = id;
+
+        return id;
+      }
+
+    } catch (e) {}
+
+    return null;
+  }
+
+  // =========================================================
+  // 🔥 LIVE PRICE (UNLIMITED TOKENS)
   // =========================================================
 
   static Future<Map<String, dynamic>> getLivePrices(List<String> symbols) async {
+
     try {
-      final ids = symbols.map((s) {
-        final clean = s.toLowerCase();
-        return coingeckoIds[clean] ?? clean;
-      }).toList();
+
+      Map<String, String> idMap = {};
+
+      for (var s in symbols) {
+        final id = await resolveCoinGeckoId(s);
+        if (id != null) {
+          idMap[s] = id;
+        }
+      }
+
+      if (idMap.isEmpty) return {};
+
+      final ids = idMap.values.toSet().join(",");
 
       final url = Uri.parse(
         "https://api.coingecko.com/api/v3/simple/price"
-        "?ids=${ids.join(",")}"
+        "?ids=$ids"
         "&vs_currencies=usd"
         "&include_24hr_change=true",
       );
@@ -104,16 +169,16 @@ class WalletService {
       Map<String, dynamic> result = {};
 
       for (var s in symbols) {
-        final clean = s.toLowerCase();
-        final id = coingeckoIds[clean];
+
+        final id = idMap[s];
 
         if (id != null && data[id] != null) {
           result[s] = {
-            "price": data[id]["usd"] ?? 0,
-            "change": data[id]["usd_24h_change"] ?? 0,
+            "price": (data[id]["usd"] ?? 0).toDouble(),
+            "change": (data[id]["usd_24h_change"] ?? 0).toDouble(),
           };
         } else {
-          result[s] = {"price": 0, "change": 0};
+          result[s] = {"price": 0.0, "change": 0.0};
         }
       }
 

@@ -322,16 +322,21 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   Widget buildTokenItem(Map<String, dynamic> token) {
 
     final symbol = (token["symbol"] ?? "").toString();
-    final bal = double.tryParse(tokenBalances[symbol] ?? "0") ?? 0;
 
-    final price = livePrices[symbol]?["price"] ?? 0;
-    final change = livePrices[symbol]?["change"] ?? 0;
+    final balance = double.tryParse(tokenBalances[symbol] ?? "0") ?? 0;
 
-    final usdValue = bal * price;
+    // 🔥 LIVE PRICE DATA
+    final price = (livePrices[symbol]?["price"] ?? 0).toDouble();
+    final change = (livePrices[symbol]?["change"] ?? 0).toDouble();
+
+    // 🔥 PORTFOLIO VALUE
+    final usdValue = balance * price;
 
     final localPath = WalletService.resolveLocalIcon(symbol);
 
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+
       leading: CircleAvatar(
         backgroundColor: Colors.white,
         child: ClipOval(
@@ -345,14 +350,60 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
           ),
         ),
       ),
-      title: Text(symbol),
-      subtitle: Text(
-        "\$${usdValue.toStringAsFixed(2)}  •  ${change.toStringAsFixed(2)}%",
-        style: TextStyle(
-          color: change >= 0 ? Colors.green : Colors.red,
+
+      // 🔥 TOKEN NAME
+      title: Text(
+        symbol,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
         ),
       ),
-      trailing: Text(bal.toStringAsFixed(6)),
+
+      // 🔥 LEFT SIDE → PRICE + CHANGE
+      subtitle: Row(
+        children: [
+          Text(
+            "\$${price.toStringAsFixed(2)}",
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            "${change >= 0 ? "+" : ""}${change.toStringAsFixed(2)}%",
+            style: TextStyle(
+              color: change >= 0 ? Colors.green : Colors.red,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+
+      // 🔥 RIGHT SIDE → BALANCE + USD VALUE
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+
+          Text(
+            balance.toStringAsFixed(6),
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          Text(
+            "\$${usdValue.toStringAsFixed(2)}",
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+
       onTap: () {
         Navigator.push(
           context,

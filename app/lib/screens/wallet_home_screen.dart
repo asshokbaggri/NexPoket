@@ -1,5 +1,7 @@
 // app/lib/screens/wallet_home_screen.dart
 
+import 'dart:async'; // 🔥 ADDED
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -44,11 +46,30 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   Map<String, dynamic> livePrices = {};
   double totalPortfolio = 0;
 
+  bool isPriceLoading = false; // 🔥 ADD THIS
+
+  Timer? priceTimer; // 🔥 ADDED
+
   @override
   void initState() {
     super.initState();
     currentAddress = widget.walletAddress;
     initAll();
+
+    // 🔥 AUTO REFRESH
+    priceTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return; // 🔥 IMPORTANT
+
+      if (tokens.isNotEmpty) {
+        loadPrices();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    priceTimer?.cancel(); // 🔥 ADDED
+    super.dispose();
   }
 
   @override
@@ -71,7 +92,8 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       loadTokens(),
     ]);
 
-    await loadPrices(); // 🔥 NEW
+    // ❌ REMOVE THIS BLOCK
+    // loadPrices already called inside loadTokens
   }
 
   Future<void> loadWallets() async {
@@ -179,6 +201,9 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         isLoadingTokens = false;
       });
 
+      // 🔥 IMPORTANT FIX
+      await loadPrices();
+
     } catch (e) {
       if (!mounted) return;
 
@@ -190,25 +215,49 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     }
   }
 
+  // 🔥 PRICE FORMAT FIX
+  String formatPrice(double price) {
+    if (price >= 1) {
+      return "\$${price.toStringAsFixed(2)}";
+    } else if (price >= 0.01) {
+      return "\$${price.toStringAsFixed(4)}";
+    } else {
+      return "\$${price.toStringAsFixed(8)}";
+    }
+  }
+
   // 🔥 LIVE PRICE LOAD
   Future<void> loadPrices() async {
 
-    final symbols = tokens.map((e) => e["symbol"].toString()).toList();
+    if (isPriceLoading) return;
+    isPriceLoading = true;
 
-    final prices = await WalletService.getLivePrices(symbols);
+    try {
 
-    final total = WalletService.calculatePortfolio(
-      tokens,
-      tokenBalances,
-      prices,
-    );
+      final prices = await WalletService.getLivePricesAdvanced(
+        tokens,
+        widget.network,
+      );
 
-    if (!mounted) return;
+      final total = WalletService.calculatePortfolio(
+        tokens,
+        tokenBalances,
+        prices,
+      );
 
-    setState(() {
-      livePrices = prices;
-      totalPortfolio = total;
-    });
+      if (!mounted) return;
+
+      setState(() {
+        livePrices = prices;
+        totalPortfolio = total;
+      });
+
+    } catch (e) {
+      // optional: log error
+    } finally {
+      // 🔥 ALWAYS RESET (MOST IMPORTANT)
+      isPriceLoading = false;
+    }
   }
 
   void copyAddress() {
@@ -325,17 +374,20 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
 
     final balance = double.tryParse(tokenBalances[symbol] ?? "0") ?? 0;
 
-    // 🔥 LIVE PRICE DATA
-    final price = (livePrices[symbol]?["price"] ?? 0).toDouble();
-    final change = (livePrices[symbol]?["change"] ?? 0).toDouble();
+    final price = double.tryParse(
+      livePrices[symbol]?["price"].toString() ?? "0",
+    ) ?? 0;
 
-    // 🔥 PORTFOLIO VALUE
+    final change = double.tryParse(
+      livePrices[symbol]?["change"].toString() ?? "0",
+    ) ?? 0;
+
     final usdValue = balance * price;
 
     final localPath = WalletService.resolveLocalIcon(symbol);
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
 
       leading: CircleAvatar(
         backgroundColor: Colors.white,
@@ -351,23 +403,14 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         ),
       ),
 
-      // 🔥 TOKEN NAME
       title: Text(
         symbol,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w600),
       ),
 
-      // 🔥 LEFT SIDE → PRICE + CHANGE
       subtitle: Row(
         children: [
-          Text(
-            "\$${price.toStringAsFixed(2)}",
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(formatPrice(price)),
           const SizedBox(width: 6),
           Text(
             "${change >= 0 ? "+" : ""}${change.toStringAsFixed(2)}%",
@@ -379,27 +422,18 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         ],
       ),
 
-      // 🔥 RIGHT SIDE → BALANCE + USD VALUE
       trailing: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
 
-          Text(
-            balance.toStringAsFixed(6),
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(balance.toStringAsFixed(6)),
 
           const SizedBox(height: 2),
 
           Text(
             "\$${usdValue.toStringAsFixed(2)}",
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
       ),

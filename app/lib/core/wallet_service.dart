@@ -53,10 +53,7 @@ class WalletService {
     ],
   };
 
-  // =========================================================
   // 🔥 SYMBOL FIX MAP
-  // =========================================================
-
   static const Map<String, String> symbolMap = {
     "weth": "eth",
     "matic": "pol",
@@ -67,10 +64,13 @@ class WalletService {
     "usdc": "usdc",
   };
 
-  // =========================================================
-  // 🔥 STATIC MAP (FAST TOKENS)
-  // =========================================================
+  // 🔥 STABLE COIN CHECK
+  static bool isStableCoin(String symbol) {
+    final s = symbol.toLowerCase();
+    return s == "usdt" || s == "usdc" || s == "busd" || s == "dai";
+  }
 
+  // 🔥 STATIC MAP
   static const Map<String, String> baseIds = {
     "eth": "ethereum",
     "bnb": "binancecoin",
@@ -84,26 +84,20 @@ class WalletService {
     "sol": "solana",
   };
 
-  // =========================================================
-  // 🔥 CACHE (AUTO MEMORY)
-  // =========================================================
-
   static Map<String, String> dynamicIdCache = {};
 
   // =========================================================
-  // 🔥 RESOLVE TOKEN ID (AUTO SEARCH)
+  // 🔥 COINGECKO ID RESOLVER
   // =========================================================
 
   static Future<String?> resolveCoinGeckoId(String symbol) async {
 
     final clean = symbol.toLowerCase();
 
-    // 1. static map
     if (baseIds.containsKey(clean)) {
       return baseIds[clean];
     }
 
-    // 2. cache
     if (dynamicIdCache.containsKey(clean)) {
       return dynamicIdCache[clean];
     }
@@ -124,73 +118,153 @@ class WalletService {
         );
 
         final id = coin["id"];
-
         dynamicIdCache[clean] = id;
 
         return id;
       }
 
-    } catch (e) {}
+    } catch (_) {}
 
     return null;
   }
 
   // =========================================================
-  // 🔥 LIVE PRICE (UNLIMITED TOKENS)
+  // 🔥 MAIN LIVE PRICE ENGINE (FINAL FIXED)
   // =========================================================
 
-  static Future<Map<String, dynamic>> getLivePrices(List<String> symbols) async {
+  static Future<Map<String, dynamic>> getLivePricesAdvanced(
+    List<Map<String, dynamic>> tokens,
+    String network,
+  ) async {
 
-    try {
+    Map<String, dynamic> result = {};
+    final client = Client();
 
-      Map<String, String> idMap = {};
+    for (var token in tokens) {
 
-      for (var s in symbols) {
-        final id = await resolveCoinGeckoId(s);
-        if (id != null) {
-          idMap[s] = id;
+      final symbol = token["symbol"];
+      final contract = token["contract"]?.toString() ?? "";
+
+      double price = 0;
+      double change = 0;
+
+      // ================= STABLE COIN FIX =================
+      if (isStableCoin(symbol)) {
+        try {
+          final res = await client.get(
+            Uri.parse("https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT"),
+          );
+
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+            price = double.tryParse(data["lastPrice"]) ?? 1.0;
+            change = double.tryParse(data["priceChangePercent"]) ?? 0;
+          } else {
+            price = 1.0;
+          }
+        } catch (_) {
+          price = 1.0;
         }
       }
 
-      if (idMap.isEmpty) return {};
+      // ================= BINANCE =================
+      if (price == 0) {
+        try {
+          final pair = "${symbol.toUpperCase()}USDT";
 
-      final ids = idMap.values.toSet().join(",");
+          final res = await client.get(
+            Uri.parse("https://api.binance.com/api/v3/ticker/24hr?symbol=$pair"),
+          );
 
-      final url = Uri.parse(
-        "https://api.coingecko.com/api/v3/simple/price"
-        "?ids=$ids"
-        "&vs_currencies=usd"
-        "&include_24hr_change=true",
-      );
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
 
-      final res = await Client().get(url);
-      final data = jsonDecode(res.body);
-
-      Map<String, dynamic> result = {};
-
-      for (var s in symbols) {
-
-        final id = idMap[s];
-
-        if (id != null && data[id] != null) {
-          result[s] = {
-            "price": (data[id]["usd"] ?? 0).toDouble(),
-            "change": (data[id]["usd_24h_change"] ?? 0).toDouble(),
-          };
-        } else {
-          result[s] = {"price": 0.0, "change": 0.0};
-        }
+            price = double.tryParse(data["lastPrice"]) ?? 0;
+            change = double.tryParse(data["priceChangePercent"]) ?? 0;
+          }
+        } catch (_) {}
       }
 
-      return result;
+      // ================= DEXSCREENER =================
+      if (price == 0 && contract.isNotEmpty) {
+        try {
+          final res = await client.get(
+            Uri.parse("https://api.dexscreener.com/latest/dex/tokens/$contract"),
+          );
 
-    } catch (e) {
-      return {};
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+
+            if (data["pairs"] != null && data["pairs"].isNotEmpty) {
+              final pair = data["pairs"][0];
+
+              price = double.tryParse(pair["priceUsd"] ?? "0") ?? 0;
+              change = double.tryParse(
+                pair["priceChange"]?["h24"]?.toString() ?? "0",
+              ) ?? 0;
+            }
+          }
+
+        } catch (_) {}
+      }
+
+      // ================= COINGECKO =================
+      if (price == 0) {
+        try {
+          final id = await resolveCoinGeckoId(symbol);
+
+          if (id != null) {
+            final res = await client.get(
+              Uri.parse(
+                "https://api.coingecko.com/api/v3/simple/price"
+                "?ids=$id&vs_currencies=usd&include_24hr_change=true",
+              ),
+            );
+
+            final data = jsonDecode(res.body);
+
+            if (data[id] != null) {
+              price = (data[id]["usd"] ?? 0).toDouble();
+              change = (data[id]["usd_24h_change"] ?? 0).toDouble();
+            }
+          }
+
+        } catch (_) {}
+      }
+
+      result[symbol] = {
+        "price": price,
+        "change": change,
+      };
     }
+
+    return result;
   }
 
   // =========================================================
-  // 🔐 MNEMONIC
+  // 🔥 PORTFOLIO
+  // =========================================================
+
+  static double calculatePortfolio(
+    List<Map<String, dynamic>> tokens,
+    Map<String, String> balances,
+    Map<String, dynamic> prices,
+  ) {
+    double total = 0;
+
+    for (var t in tokens) {
+      final symbol = t["symbol"];
+      final bal = double.tryParse(balances[symbol] ?? "0") ?? 0;
+      final price = prices[symbol]?["price"] ?? 0;
+
+      total += bal * price;
+    }
+
+    return total;
+  }
+
+  // =========================================================
+  // 🔐 MNEMONIC + WALLET
   // =========================================================
 
   static String generateMnemonic() {
@@ -204,10 +278,6 @@ class WalletService {
   static bool validateMnemonic(String mnemonic) {
     return bip39.validateMnemonic(mnemonic);
   }
-
-  // =========================================================
-  // 🔥 CREATE WALLET
-  // =========================================================
 
   static Future<Map<String, String>> createWallet(String mnemonic) async {
     final seed = bip39.mnemonicToSeed(mnemonic);
@@ -292,29 +362,7 @@ class WalletService {
   }
 
   // =========================================================
-  // 🔥 PORTFOLIO CALCULATOR
-  // =========================================================
-
-  static double calculatePortfolio(
-    List<Map<String, dynamic>> tokens,
-    Map<String, String> balances,
-    Map<String, dynamic> prices,
-  ) {
-    double total = 0;
-
-    for (var t in tokens) {
-      final symbol = t["symbol"];
-      final bal = double.tryParse(balances[symbol] ?? "0") ?? 0;
-      final price = prices[symbol]?["price"] ?? 0;
-
-      total += bal * price;
-    }
-
-    return total;
-  }
-
-  // =========================================================
-  // 🔥 ICON SYSTEM
+  // ICONS
   // =========================================================
 
   static String resolveLocalIcon(String symbol) {

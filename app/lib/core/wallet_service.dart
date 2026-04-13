@@ -295,6 +295,7 @@ class WalletService {
       name: walletName,
       privateKey: privateKeyHex,
       address: address.hex,
+      mnemonic: mnemonic, // 🔥 ADD THIS
     );
 
     return {"address": address.hex};

@@ -6,7 +6,15 @@ import 'confirm_phrase_screen.dart';
 import '../core/wallet_service.dart';
 
 class SeedPhraseScreen extends StatefulWidget {
-  const SeedPhraseScreen({super.key});
+
+  final String? mnemonic; // 🔥 NEW
+  final bool isBackup;    // 🔥 NEW
+
+  const SeedPhraseScreen({
+    super.key,
+    this.mnemonic,
+    this.isBackup = false,
+  });
 
   @override
   State<SeedPhraseScreen> createState() => _SeedPhraseScreenState();
@@ -21,7 +29,13 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
   void initState() {
     super.initState();
 
-    _mnemonic = WalletService.generateMnemonic();
+    // 🔥 FIX: HANDLE BOTH CASES (CREATE + BACKUP)
+    if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+      _mnemonic = widget.mnemonic!;
+    } else {
+      _mnemonic = WalletService.generateMnemonic();
+    }
+
     _seedWords = _mnemonic.split(" ");
   }
 
@@ -42,7 +56,11 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       appBar: AppBar(
-        title: const Text("Your Recovery Phrase"),
+        title: Text(
+          widget.isBackup
+              ? "Backup Recovery Phrase"
+              : "Your Recovery Phrase",
+        ),
       ),
 
       body: Padding(
@@ -50,10 +68,12 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
         child: Column(
           children: [
 
-            const Text(
-              "Write down or copy these words in order and keep them safe.",
+            Text(
+              widget.isBackup
+                  ? "This is your wallet recovery phrase. Do NOT share it."
+                  : "Write down or copy these words in order and keep them safe.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey),
             ),
 
             const SizedBox(height: 20),
@@ -106,28 +126,43 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 NO WALLET CREATION HERE
-            OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ConfirmPhraseScreen(
-                      seedWords: _seedWords,
-                      mnemonic: _mnemonic, // 🔥 PASS MNEMONIC
+            // 🔥 DIFFERENT FLOW BASED ON TYPE
+            if (!widget.isBackup)
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ConfirmPhraseScreen(
+                        seedWords: _seedWords,
+                        mnemonic: _mnemonic,
+                      ),
                     ),
-                  ),
-                );
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.grey),
-                minimumSize: const Size(double.infinity, 50),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.grey),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text(
+                  "I’ve Saved It",
+                  style: TextStyle(color: Colors.black),
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3375BB),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text(
+                  "Done",
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-              child: const Text(
-                "I’ve Saved It",
-                style: TextStyle(color: Colors.black),
-              ),
-            ),
           ],
         ),
       ),

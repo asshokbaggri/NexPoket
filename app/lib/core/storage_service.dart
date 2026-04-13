@@ -105,6 +105,7 @@ class StorageService {
     required String name,
     required String privateKey,
     required String address,
+    required String mnemonic, // 🔥 ADD THIS
   }) async {
     final wallets = await getWallets();
 
@@ -113,10 +114,13 @@ class StorageService {
 
     final encrypted = await _encrypt(privateKey);
 
+    final encryptedMnemonic = await _encrypt(mnemonic);
+
     final wallet = {
       "name": name.trim(),
       "address": address,
       "privateKey": encrypted,
+      "mnemonic": encryptedMnemonic, // 🔥 SAVE SECURELY
     };
 
     wallets.add(wallet);
@@ -196,6 +200,50 @@ class StorageService {
     } catch (e) {
       return null;
     }
+  }
+
+  static Future<String?> getMnemonic(String address) async {
+    try {
+      final wallets = await getWallets();
+
+      final wallet = wallets.firstWhere(
+        (w) => w["address"] == address,
+        orElse: () => {},
+      );
+
+      if (wallet.isEmpty) return null;
+
+      final decrypted = await _decrypt(wallet["mnemonic"]);
+
+      if (decrypted.isEmpty) return null;
+
+      return decrypted;
+    } catch (e) {
+      return null;
+    }
+  }
+
+
+  // =========================================================
+  // ✏️ UPDATE WALLET NAME
+  // =========================================================
+
+  static Future<void> updateWalletName({
+    required String address,
+    required String newName,
+  }) async {
+    final wallets = await getWallets();
+
+    for (var w in wallets) {
+      if (w["address"] == address) {
+        w["name"] = newName.trim();
+      }
+    }
+
+    await _storage.write(
+      key: _walletsKey,
+      value: jsonEncode(wallets),
+    );
   }
 
   // =========================================================

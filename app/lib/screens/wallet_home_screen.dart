@@ -356,33 +356,93 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
   void showWalletOptions(Map<String, dynamic> wallet) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // 🔥 ADD THIS
+      shape: const RoundedRectangleBorder( // 🔥 ADD THIS
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
       builder: (_) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: MediaQuery.of(context).size.height * 0.55, // 🔥 ADD
 
-            const SizedBox(height: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text("Edit Wallet Name"),
-              onTap: () {
-                Navigator.pop(context);
-                showRenameDialog(wallet);
-              },
-            ),
+              // 🔥 HANDLE
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
 
-            ListTile(
-              leading: const Icon(Icons.security),
-              title: const Text("Backup Seed Phrase"),
-              onTap: () {
-                Navigator.pop(context);
-                showBackupWarning(wallet);
-              },
-            ),
+              const Text("Wallet", style: TextStyle(color: Colors.grey)),
 
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 5),
+
+              Text(
+                wallet["name"],
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.edit),
+                title: const Text("Edit Wallet Name"),
+                onTap: () {
+                  Navigator.pop(context);
+                  showRenameDialog(wallet);
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              const SizedBox(height: 25),
+
+              const Text(
+                "Secret phrase backups",
+                style: TextStyle(color: Colors.grey),
+              ),
+
+              const SizedBox(height: 15),
+
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.cloud_outlined),
+                title: const Text("Google Drive"),
+                trailing: const Text(
+                  "Back up now",
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {},
+              ),
+
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.touch_app_outlined),
+                title: const Text("Manual"),
+                trailing: const Text(
+                  "Back up now",
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  showBackupWarning(wallet);
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -500,45 +560,118 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       return;
     }
 
+    bool c1 = false;
+    bool c2 = false;
+    bool c3 = false;
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // 🔥 ADD
+      shape: const RoundedRectangleBorder( // 🔥 ADD
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
       builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              color: Colors.white, // 🔥 ADD THIS
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
 
-              const Icon(Icons.warning, color: Colors.orange, size: 40),
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange, size: 50),
 
-              const SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
-              const Text(
-                "This secret phrase unlocks your wallet",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+                  const Text(
+                    "This secret phrase unlocks your wallet",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black, // 🔥 ADD
+                    ),
+                  ),
 
-              const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SeedPhraseScreen(
-                        mnemonic: mnemonic, // 🔥 IMPORTANT
-                        isBackup: true,
+                  CheckboxListTile(
+                    value: c1,
+                    onChanged: (v) => setState(() => c1 = v!),
+                    activeColor: const Color(0xFF3375BB),
+                    checkColor: Colors.white,
+                    title: const Text(
+                      "If I lose it, I will lose my funds.",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87, // 🔥 FIX
                       ),
                     ),
-                  );
-                },
-                child: const Text("Continue"),
+                  ),
+
+                  CheckboxListTile(
+                    value: c2,
+                    onChanged: (v) => setState(() => c2 = v!),
+                    activeColor: const Color(0xFF3375BB),
+                    checkColor: Colors.white,
+                    title: const Text(
+                        "If I share it, others can access my wallet.",
+                        style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87, // 🔥 FIX
+                      ),
+                    ),
+                  ),
+
+                  CheckboxListTile(
+                    value: c3,
+                    onChanged: (v) => setState(() => c3 = v!),
+                    activeColor: const Color(0xFF3375BB),
+                    checkColor: Colors.white,
+                    title: const Text(
+                        "I understand and will keep it safe.",
+                        style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87, // 🔥 FIX
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: (c1 && c2 && c3)
+                        ? () {
+                            Navigator.pop(context);
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SeedPhraseScreen(
+                                  mnemonic: mnemonic,
+                                  isBackup: true,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3375BB),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      "Continue",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+               ),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

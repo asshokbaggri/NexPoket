@@ -29,7 +29,7 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
   void initState() {
     super.initState();
 
-    // 🔥 FIX: HANDLE BOTH CASES (CREATE + BACKUP)
+    // 🔥 HANDLE BOTH CASES
     if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
       _mnemonic = widget.mnemonic!;
     } else {
@@ -126,8 +126,9 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 DIFFERENT FLOW BASED ON TYPE
+            // 🔥 CORRECT FLOW
             if (!widget.isBackup)
+              // ✅ NEW WALLET FLOW
               OutlinedButton(
                 onPressed: () {
                   Navigator.push(
@@ -136,6 +137,7 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
                       builder: (_) => ConfirmPhraseScreen(
                         seedWords: _seedWords,
                         mnemonic: _mnemonic,
+                        isBackup: false, // ✅ FIX
                       ),
                     ),
                   );
@@ -150,16 +152,26 @@ class _SeedPhraseScreenState extends State<SeedPhraseScreen> {
                 ),
               )
             else
+              // ✅ BACKUP FLOW
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ConfirmPhraseScreen(
+                        seedWords: _seedWords,
+                        mnemonic: _mnemonic,
+                        isBackup: true, // ✅ FIX
+                      ),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3375BB),
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 child: const Text(
-                  "Done",
+                  "Continue",
                   style: TextStyle(color: Colors.white),
                 ),
               ),

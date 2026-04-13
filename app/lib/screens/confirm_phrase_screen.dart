@@ -7,11 +7,13 @@ import '../core/wallet_service.dart';
 class ConfirmPhraseScreen extends StatefulWidget {
   final List<String> seedWords;
   final String mnemonic;
+  final bool isBackup;
 
   const ConfirmPhraseScreen({
     super.key,
     required this.seedWords,
     required this.mnemonic,
+    this.isBackup = false,
   });
 
   @override
@@ -66,22 +68,40 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
     return selectedWords.join(" ") == correctWords.join(" ");
   }
 
-  Future<void> completeWalletSetup() async {
-    final wallet = await WalletService.createWallet(widget.mnemonic);
+  Future<void> handleContinue() async {
 
-    if (!mounted) return;
+    // 🔥 SAFETY CHECK (optional but good)
+    if (selectedWords.length != correctWords.length || !isCorrect()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Wrong order ❌ Try again")),
+      );
+      return;
+    }
 
-    // 🔥 FINAL FIX (NO BACK STACK)
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AppShell(
-          walletAddress: wallet["address"]!,
-          network: "BSC", // DEFAULT FIX
+    if (widget.isBackup) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Backup Complete ✅")),
+      );
+
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } else {
+      final wallet = await WalletService.createWallet(widget.mnemonic);
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AppShell(
+            walletAddress: wallet["address"]!,
+            network: "BSC",
+          ),
         ),
-      ),
-      (route) => false, // 🔥 REMOVE ALL PREVIOUS SCREENS
-    );
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -182,14 +202,17 @@ class _ConfirmPhraseScreenState extends State<ConfirmPhraseScreen> {
 
             const SizedBox(height: 10),
 
+            // 🔥 MAIN FIX HERE
             ElevatedButton(
-              onPressed: isCorrect()
-                  ? completeWalletSetup
-                  : null,
+              onPressed: (selectedWords.length == correctWords.length && isCorrect())
+                  ? handleContinue
+                  : null, // ❌ disable until correct
+
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 50),
               ),
+
               child: const Text(
                 "Continue",
                 style: TextStyle(color: Colors.white),

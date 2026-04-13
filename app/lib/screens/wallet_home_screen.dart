@@ -13,6 +13,7 @@ import 'receive_screen.dart';
 import 'add_token_screen.dart';
 import 'seed_phrase_screen.dart';
 import 'import_wallet_screen.dart';
+import 'token_detail_screen.dart';
 
 class WalletHomeScreen extends StatefulWidget {
   final String walletAddress;
@@ -751,8 +752,17 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SendScreen(
+            builder: (_) => TokenDetailScreen(
+              symbol: symbol,
+              balance: balance,
+              price: price,
+              change: change,
               walletAddress: currentAddress,
+
+              // 🔥 THIS IS THE MAIN FIX
+              network: widget.network,
+              contract: token["contract"] ?? "",
+              isNative: token["isNative"] ?? false,
             ),
           ),
         );

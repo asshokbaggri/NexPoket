@@ -31,6 +31,7 @@ dependencies:
   encrypt: ^5.0.3
   mobile_scanner: ^3.5.5
   flutter_svg: ^2.0.7
+  fl_chart: ^0.66.0
   
 
 dev_dependencies:

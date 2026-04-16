@@ -15,6 +15,9 @@ class StorageService {
   // 🔥 TOKEN STORAGE KEY
   static const _customTokensKey = "custom_tokens";
 
+  // 🔥 ADD THIS (TX CACHE KEY)
+  static const _txCacheKey = "tx_cache";
+
   // =========================================================
   // 🔐 ENCRYPTION SYSTEM
   // =========================================================
@@ -326,6 +329,72 @@ class StorageService {
       key: _customTokensKey,
       value: jsonEncode(tokens),
     );
+  }
+
+  // =========================================================
+  // 🔥 TRANSACTION CACHE SYSTEM (ADD HERE)
+  // =========================================================
+
+  static Future<void> saveTxCache(
+    String address,
+    String network,
+    List<Map<String, dynamic>> txs,
+  ) async {
+    try {
+      final data = await _storage.read(key: _txCacheKey);
+
+      Map<String, dynamic> cache = {};
+
+      if (data != null && data.isNotEmpty) {
+        cache = jsonDecode(data);
+      }
+
+      final key = "$network-$address";
+
+      cache[key] = {
+        "time": DateTime.now().millisecondsSinceEpoch,
+        "data": txs,
+      };
+
+      await _storage.write(
+        key: _txCacheKey,
+        value: jsonEncode(cache),
+      );
+    } catch (_) {}
+  }
+
+  static Future<List<Map<String, dynamic>>> getTxCache(
+    String address,
+    String network,
+  ) async {
+    try {
+      final data = await _storage.read(key: _txCacheKey);
+
+      if (data == null) return [];
+
+      final cache = jsonDecode(data);
+
+      final key = "$network-$address";
+
+      if (!cache.containsKey(key)) return [];
+
+      final entry = cache[key];
+
+      final timestamp = entry["time"];
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // 🔥 30 sec cache
+      if (now - timestamp > 30000) return [];
+
+      final list = entry["data"] as List;
+
+      return list
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+    } catch (_) {
+      return [];
+    }
   }
 
   // =========================================================

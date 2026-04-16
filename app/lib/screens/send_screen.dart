@@ -1,11 +1,10 @@
-// app/lib/screens/send_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
+import 'dart:math';
 
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
@@ -29,7 +28,7 @@ class _SendScreenState extends State<SendScreen> {
 
   bool isLoading = false;
   bool isScanning = false;
-  bool isInitializing = true; // 🔥 FIX
+  bool isInitializing = true;
 
   String selectedNetwork = "BSC";
   String symbol = "BNB";
@@ -47,6 +46,10 @@ class _SendScreenState extends State<SendScreen> {
     initNetwork();
   }
 
+  // ============================
+  // 🔥 INIT NETWORK + BALANCE
+  // ============================
+
   Future<void> initNetwork() async {
 
     final net = await StorageService.getSelectedNetwork();
@@ -56,39 +59,63 @@ class _SendScreenState extends State<SendScreen> {
 
     final allTokens = [...defaultTokens, ...customTokens];
 
-    final bal = await WalletService.getBalance(
-      widget.walletAddress,
-      net,
-    );
+    double balValue = 0;
+
+    final firstToken = allTokens.first;
+
+    if (firstToken["isNative"] == true) {
+      final bal = await WalletService.getBalance(
+        widget.walletAddress,
+        net,
+      );
+      balValue = double.tryParse(bal) ?? 0;
+    } else {
+      final bal = await WalletService.getTokenBalance(
+        address: widget.walletAddress,
+        contract: firstToken["contract"],
+        decimals: firstToken["decimals"],
+        network: net,
+      );
+      balValue = double.tryParse(bal) ?? 0;
+    }
 
     setState(() {
       selectedNetwork = net;
       tokens = allTokens;
-      selectedToken = allTokens.first;
+      selectedToken = firstToken;
 
       symbol = selectedToken!["symbol"];
       chainId = getChainId(net);
-      currentBalance = double.tryParse(bal) ?? 0;
+      currentBalance = balValue;
 
-      isInitializing = false; // 🔥 IMPORTANT
+      isInitializing = false;
     });
   }
 
   int getChainId(String network) {
     switch (network) {
-      case "Ethereum":
-        return 1;
-      case "Polygon":
-        return 137;
+      case "Ethereum": return 1;
+      case "Polygon": return 137;
       case "BSC":
-      default:
-        return 56;
+      default: return 56;
     }
   }
 
+  // ============================
+  // 🔥 SMART MAX
+  // ============================
+
   void setMaxAmount() {
     if (currentBalance <= 0) return;
-    final max = currentBalance * 0.98;
+
+    final isNative = selectedToken?["isNative"] == true;
+
+    double max = currentBalance;
+
+    if (isNative) {
+      max = currentBalance * 0.95;
+    }
+
     amountController.text = max.toStringAsFixed(6);
   }
 
@@ -99,15 +126,22 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
+  // ============================
+  // 🔥 MAIN TRANSACTION ENGINE
+  // ============================
+
   Future<void> sendTransaction() async {
 
     final toAddress = addressController.text.trim();
     final amountText = amountController.text.trim();
 
     if (toAddress.isEmpty || amountText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Fill all fields")),
-      );
+      showMsg("Fill all fields");
+      return;
+    }
+
+    if (!toAddress.startsWith("0x") || toAddress.length != 42) {
+      showMsg("Invalid address");
       return;
     }
 
@@ -115,9 +149,12 @@ class _SendScreenState extends State<SendScreen> {
     try {
       amount = double.parse(amountText);
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid amount")),
-      );
+      showMsg("Invalid amount");
+      return;
+    }
+
+    if (amount <= 0) {
+      showMsg("Amount must be greater than 0");
       return;
     }
 
@@ -133,61 +170,96 @@ class _SendScreenState extends State<SendScreen> {
       final credentials = EthPrivateKey.fromHex(privateKey!);
       final receiver = EthereumAddress.fromHex(toAddress);
 
-      final txHash = await client.sendTransaction(
-        credentials,
-        Transaction(
-          to: receiver,
-          value: EtherAmount.fromUnitAndValue(
-            EtherUnit.ether,
-            amount,
-          ),
-        ),
-        chainId: chainId,
-      );
+      final isNative = selectedToken?["isNative"] == true;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("TX Sent: $txHash")),
-      );
+      String txHash;
+
+      // ============================
+      // 🔥 NATIVE TRANSFER FIXED
+      // ============================
+      if (isNative) {
+
+        final amountInWei = BigInt.parse(
+          (amount * pow(10, 18)).toStringAsFixed(0),
+        );
+
+        txHash = await client.sendTransaction(
+          credentials,
+          Transaction(
+            to: receiver,
+            value: EtherAmount.inWei(amountInWei),
+          ),
+          chainId: chainId,
+        );
+
+      } else {
+
+        // ============================
+        // 🔥 ERC20 TRANSFER FIXED
+        // ============================
+
+        final contractAddress =
+            EthereumAddress.fromHex(selectedToken!["contract"]);
+
+        final abi = ContractAbi.fromJson(
+          '''
+          [
+            {
+              "constant": false,
+              "inputs": [
+                {"name": "_to","type": "address"},
+                {"name": "_value","type": "uint256"}
+              ],
+              "name": "transfer",
+              "outputs": [{"name": "","type": "bool"}],
+              "type": "function"
+            }
+          ]
+          ''',
+          "ERC20",
+        );
+
+        final contract = DeployedContract(abi, contractAddress);
+
+        final decimals =
+            int.tryParse(selectedToken!["decimals"].toString()) ?? 18;
+
+        final amountInWei = BigInt.parse(
+          (amount * pow(10, decimals)).toStringAsFixed(0),
+        );
+
+        final tx = Transaction.callContract(
+          contract: contract,
+          function: contract.function("transfer"),
+          parameters: [receiver, amountInWei],
+        );
+
+        txHash = await client.sendTransaction(
+          credentials,
+          tx,
+          chainId: chainId,
+        );
+      }
+
+      showMsg("TX Sent ✔\n$txHash");
 
       Navigator.pop(context);
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      showMsg(e.toString());
     }
 
     setState(() => isLoading = false);
   }
 
-  void openScanner() {
-    isScanning = false;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text("Scan QR")),
-          body: MobileScanner(
-            onDetect: (barcodeCapture) {
-              if (isScanning) return;
-
-              final code = barcodeCapture.barcodes.first.rawValue;
-
-              if (code != null) {
-                isScanning = true;
-                addressController.text = code;
-
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  Navigator.pop(context);
-                });
-              }
-            },
-          ),
-        ),
-      ),
-    );
+  void showMsg(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
+
+  // ============================
+  // 🔥 TOKEN SELECTOR FIXED
+  // ============================
 
   Widget buildTokenSelector() {
     return Container(
@@ -222,14 +294,66 @@ class _SendScreenState extends State<SendScreen> {
             ),
           );
         }).toList(),
-        onChanged: (val) {
+        onChanged: (val) async {
           if (val == null) return;
+
+          double balValue = 0;
+
+          if (val["isNative"] == true) {
+            final bal = await WalletService.getBalance(
+              widget.walletAddress,
+              selectedNetwork,
+            );
+            balValue = double.tryParse(bal) ?? 0;
+          } else {
+            final bal = await WalletService.getTokenBalance(
+              address: widget.walletAddress,
+              contract: val["contract"],
+              decimals: val["decimals"],
+              network: selectedNetwork,
+            );
+            balValue = double.tryParse(bal) ?? 0;
+          }
 
           setState(() {
             selectedToken = val;
             symbol = val["symbol"];
+            currentBalance = balValue;
           });
         },
+      ),
+    );
+  }
+
+  // ============================
+  // UI
+  // ============================
+
+  void openScanner() {
+    isScanning = false;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text("Scan QR")),
+          body: MobileScanner(
+            onDetect: (barcodeCapture) {
+              if (isScanning) return;
+
+              final code = barcodeCapture.barcodes.first.rawValue;
+
+              if (code != null) {
+                isScanning = true;
+                addressController.text = code;
+
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  Navigator.pop(context);
+                });
+              }
+            },
+          ),
+        ),
       ),
     );
   }
@@ -242,8 +366,6 @@ class _SendScreenState extends State<SendScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -259,29 +381,6 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.walletAddress,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 🔥 ADDRESS INPUT (FIXED BUTTON STYLE)
             TextField(
               controller: addressController,
               decoration: InputDecoration(
@@ -294,12 +393,8 @@ class _SendScreenState extends State<SendScreen> {
                       onTap: pasteAddress,
                       child: const Padding(
                         padding: EdgeInsets.only(right: 10),
-                        child: Text(
-                          "Paste",
-                          style: TextStyle(
-                            color: Color(0xFF3375BB),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Text("Paste",
+                          style: TextStyle(color: Color(0xFF3375BB)),
                         ),
                       ),
                     ),
@@ -315,7 +410,6 @@ class _SendScreenState extends State<SendScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 AMOUNT INPUT (FIXED BUTTON STYLE)
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
@@ -325,12 +419,8 @@ class _SendScreenState extends State<SendScreen> {
                   onTap: setMaxAmount,
                   child: const Padding(
                     padding: EdgeInsets.only(right: 10),
-                    child: Text(
-                      "Max",
-                      style: TextStyle(
-                        color: Color(0xFF3375BB),
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Text("Max",
+                      style: TextStyle(color: Color(0xFF3375BB)),
                     ),
                   ),
                 ),

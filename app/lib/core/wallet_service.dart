@@ -34,6 +34,18 @@ class WalletService {
     },
   };
 
+  // =========================================================
+// 🔥 EXPLORER CONFIG (ETHERSCAN V2 - SINGLE KEY)
+// =========================================================
+
+static const String explorerApiKey = "S97UPFBS6EJRSNUHQU1PD25KNT89UJKX6C";
+
+static const Map<String, int> explorerChainIds = {
+  "Ethereum": 1,
+  "BSC": 56,
+  "Polygon": 137,
+};
+
   // 🔥 DEFAULT TOKENS
   static const Map<String, List<Map<String, dynamic>>> defaultTokens = {
     "BSC": [
@@ -386,6 +398,75 @@ class WalletService {
     final cleanContract = contract.toLowerCase();
 
     return "https://assets.trustwallet.com/blockchains/$folder/assets/$cleanContract/logo.png";
+  }
+
+  // =========================================================
+  // 🔥 REAL TRANSACTION HISTORY (ETHERSCAN V2 FINAL)
+  // =========================================================
+
+  static Future<List<Map<String, dynamic>>> getTransactionHistory({
+    required String address,
+    required String network,
+  }) async {
+
+    List<Map<String, dynamic>> txs = [];
+
+    try {
+
+      final chainId = explorerChainIds[network];
+      if (chainId == null) return [];
+
+      final url = Uri.parse(
+        "https://api.etherscan.io/api"
+        "?chainid=$chainId"
+        "&module=account"
+        "&action=txlist"
+        "&address=$address"
+        "&startblock=0"
+        "&endblock=99999999"
+        "&sort=desc"
+        "&apikey=$explorerApiKey",
+      );
+
+      final res = await Client().get(url);
+
+      if (res.statusCode != 200) return [];
+
+      final data = jsonDecode(res.body);
+
+      if (data["status"] != "1") return [];
+
+      final list = data["result"] as List;
+
+      for (var tx in list.take(30)) {
+
+        final isSent =
+            tx["from"].toString().toLowerCase() ==
+            address.toLowerCase();
+
+        final valueWei = BigInt.tryParse(tx["value"]) ?? BigInt.zero;
+
+        final valueEth =
+            valueWei / BigInt.from(10).pow(18);
+
+        txs.add({
+          "hash": tx["hash"],
+          "from": tx["from"],
+          "to": tx["to"],
+          "value": valueEth.toStringAsFixed(6),
+          "time": DateTime.fromMillisecondsSinceEpoch(
+            int.parse(tx["timeStamp"]) * 1000,
+          ),
+          "isSent": isSent,
+          "status": tx["txreceipt_status"] == "1",
+        });
+      }
+
+    } catch (e) {
+      // silent fail
+    }
+
+    return txs;
   }
 
   // =========================================================

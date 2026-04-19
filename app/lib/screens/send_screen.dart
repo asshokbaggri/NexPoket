@@ -46,6 +46,10 @@ class _SendScreenState extends State<SendScreen> {
 
   Map<String, double> balanceCache = {};
 
+  // 🔥 NEW VALIDATION STATE
+  String errorText = "";
+  bool isValid = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +57,7 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 FIXED TOKEN KEY (NO NETWORK)
+  // 🔥 TOKEN KEY
   // ============================
 
   String getTokenKey(Map<String, dynamic> t) {
@@ -68,7 +72,37 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 FAST BALANCE (FIXED NETWORK)
+  // 🔥 VALIDATION
+  // ============================
+
+  void validateInput() {
+    final address = addressController.text.trim();
+    final amountText = amountController.text.trim();
+
+    double amount = double.tryParse(amountText) ?? 0;
+
+    String error = "";
+
+    if (address.isEmpty || amountText.isEmpty) {
+      error = "";
+    } else if (!address.startsWith("0x") || address.length != 42) {
+      error = "Invalid address";
+    } else if (amount <= 0) {
+      error = "Invalid amount";
+    } else if (amount > currentBalance) {
+      error = "Insufficient Balance";
+    }
+
+    setState(() {
+      errorText = error;
+      isValid = error.isEmpty &&
+          address.isNotEmpty &&
+          amountText.isNotEmpty;
+    });
+  }
+
+  // ============================
+  // 🔥 BALANCE
   // ============================
 
   Future<double> getTokenBalanceFast(Map<String, dynamic> token) async {
@@ -103,7 +137,6 @@ class _SendScreenState extends State<SendScreen> {
     }
 
     balanceCache[key] = balValue;
-
     return balValue;
   }
 
@@ -162,12 +195,14 @@ class _SendScreenState extends State<SendScreen> {
     }
 
     amountController.text = max.toStringAsFixed(6);
+    validateInput();
   }
 
   Future<void> pasteAddress() async {
     final data = await Clipboard.getData('text/plain');
     if (data != null) {
       addressController.text = data.text ?? "";
+      validateInput();
     }
   }
 
@@ -276,7 +311,7 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 TOKEN SELECTOR (FIXED)
+  // 🔥 TOKEN SELECTOR
   // ============================
 
   Widget buildTokenSelector() {
@@ -324,6 +359,12 @@ class _SendScreenState extends State<SendScreen> {
             selectedTokenKey = key;
             symbol = token["symbol"];
             currentBalance = 0;
+
+            // 🔥 RESET
+            amountController.clear();
+            addressController.clear();
+            errorText = "";
+            isValid = false;
           });
 
           final balValue = await getTokenBalanceFast(token);
@@ -333,6 +374,8 @@ class _SendScreenState extends State<SendScreen> {
           setState(() {
             currentBalance = balValue;
           });
+
+          validateInput();
         },
       ),
     );
@@ -359,6 +402,7 @@ class _SendScreenState extends State<SendScreen> {
               if (code != null) {
                 isScanning = true;
                 addressController.text = code;
+                validateInput();
 
                 Future.delayed(const Duration(milliseconds: 300), () {
                   Navigator.pop(context);
@@ -396,6 +440,7 @@ class _SendScreenState extends State<SendScreen> {
 
             TextField(
               controller: addressController,
+              onChanged: (_) => validateInput(),
               decoration: InputDecoration(
                 labelText: "Recipient Address",
                 suffixIcon: Row(
@@ -424,6 +469,7 @@ class _SendScreenState extends State<SendScreen> {
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
+              onChanged: (_) => validateInput(),
               decoration: InputDecoration(
                 labelText: "Amount ($symbol)",
                 suffixIcon: GestureDetector(
@@ -448,35 +494,41 @@ class _SendScreenState extends State<SendScreen> {
               ),
             ),
 
+            if (errorText.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  errorText,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
             const Spacer(),
 
             ElevatedButton(
-              onPressed: isLoading ? null : () {
+              onPressed: (isLoading || !isValid)
+                  ? null
+                  : () {
 
-                final toAddress = addressController.text.trim();
-                final amountText = amountController.text.trim();
-
-                if (toAddress.isEmpty || amountText.isEmpty) {
-                  showMsg("Fill all fields");
-                  return;
-                }
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TransactionPreviewScreen(
-                      toAddress: toAddress,
-                      amount: amountText,
-                      symbol: symbol,
-                      network: selectedNetwork,
-                      onConfirm: () {
-                        Navigator.pop(context);
-                        sendTransaction();
-                      },
-                    ),
-                  ),
-                );
-              },
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TransactionPreviewScreen(
+                            toAddress: addressController.text.trim(),
+                            amount: amountController.text.trim(),
+                            symbol: symbol,
+                            network: selectedNetwork,
+                            onConfirm: () {
+                              Navigator.pop(context);
+                              sendTransaction();
+                            },
+                          ),
+                        ),
+                      );
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 55),

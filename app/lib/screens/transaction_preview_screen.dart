@@ -1,9 +1,12 @@
+// app/lib/screens/transaction_preview_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/wallet_service.dart';
+import '../core/storage_service.dart';
 
 class TransactionPreviewScreen extends StatefulWidget {
   final String toAddress;
@@ -34,10 +37,57 @@ class _TransactionPreviewScreenState
   double gasFee = 0;
   double total = 0;
 
+  double tokenPrice = 0;
+  double gasUsd = 0;
+  double totalUsd = 0;
+
+  String walletName = "";
+  String walletAddress = "";
+
   @override
   void initState() {
     super.initState();
-    estimateGas();
+    initAll();
+  }
+
+  // ============================
+  // 🔥 INIT ALL
+  // ============================
+
+  Future<void> initAll() async {
+    await loadWallet();
+    await estimateGas();
+    await loadPrices();
+  }
+
+  // ============================
+  // 🔥 LOAD WALLET INFO
+  // ============================
+
+  Future<void> loadWallet() async {
+    final wallet = await StorageService.getSelectedWallet();
+
+    if (wallet != null) {
+      walletName = wallet["name"] ?? "Wallet";
+      walletAddress = wallet["address"] ?? "";
+    }
+  }
+
+  // ============================
+  // 🔥 SMART NETWORK NAME
+  // ============================
+
+  String getDisplayNetworkName(String net) {
+    switch (net) {
+      case "BSC":
+        return "BNB Smart Chain";
+      case "Ethereum":
+        return "Ethereum Mainnet";
+      case "Polygon":
+        return "Polygon Network";
+      default:
+        return net;
+    }
   }
 
   // ============================
@@ -49,20 +99,17 @@ class _TransactionPreviewScreenState
   }
 
   // ============================
-  // 🔥 FIXED GAS (REAL)
+  // 🔥 GAS ESTIMATION
   // ============================
 
   Future<void> estimateGas() async {
     try {
       final client = Web3Client(getRpc(), Client());
 
-      // 🔥 REAL GAS PRICE
       final gasPrice = await client.getGasPrice();
 
-      // 🔥 SAFE GAS LIMIT (NO ZERO ADDRESS BUG)
       int gasLimit = 21000;
 
-      // ERC20 case (higher gas)
       if (widget.symbol.toLowerCase() !=
           WalletService.getSymbol(widget.network).toLowerCase()) {
         gasLimit = 65000;
@@ -74,29 +121,44 @@ class _TransactionPreviewScreenState
       final feeEth =
           gasInWei / BigInt.from(10).pow(18);
 
-      final feeDouble =
-          double.tryParse(feeEth.toString()) ?? 0;
+      gasFee = double.tryParse(feeEth.toString()) ?? 0;
 
-      setState(() {
-        gasFee = feeDouble;
-        total = double.parse(widget.amount) + gasFee;
-        isLoading = false;
-      });
+      total = double.parse(widget.amount) + gasFee;
 
       client.dispose();
 
-    } catch (e) {
-      // 🔥 fallback safe
-      setState(() {
-        gasFee = 0.0003;
-        total = double.parse(widget.amount) + gasFee;
-        isLoading = false;
-      });
+    } catch (_) {
+      gasFee = 0.0003;
+      total = double.parse(widget.amount) + gasFee;
     }
   }
 
   // ============================
-  // 🔥 ICON BUILDER
+  // 🔥 PRICE FETCH
+  // ============================
+
+  Future<void> loadPrices() async {
+    try {
+      final prices =
+          await WalletService.getLivePricesAdvanced([
+        {"symbol": widget.symbol, "contract": ""}
+      ], widget.network);
+
+      tokenPrice =
+          prices[widget.symbol]?["price"] ?? 0;
+
+      gasUsd = gasFee * tokenPrice;
+      totalUsd = total * tokenPrice;
+
+    } catch (_) {}
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  // ============================
+  // 🔥 TOKEN ICON
   // ============================
 
   Widget buildTokenIcon() {
@@ -128,6 +190,15 @@ class _TransactionPreviewScreenState
   }
 
   // ============================
+  // 🔥 SHORT ADDRESS
+  // ============================
+
+  String shortAddress(String addr) {
+    if (addr.length < 10) return addr;
+    return "${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}";
+  }
+
+  // ============================
   // UI
   // ============================
 
@@ -147,34 +218,37 @@ class _TransactionPreviewScreenState
               child: Column(
                 children: [
 
-                  // 🔥 ICON + AMOUNT
+                  // 🔥 TOP ICON + AMOUNT
                   Column(
                     children: [
 
                       buildTokenIcon(),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
 
                       Text(
                         "${widget.amount} ${widget.symbol}",
                         style: const TextStyle(
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
 
                       const SizedBox(height: 5),
 
-                      const Text(
-                        "Sending",
-                        style: TextStyle(color: Colors.grey),
+                      Text(
+                        "\$${(double.parse(widget.amount) * tokenPrice).toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 25),
 
-                  // 🔥 CARD
+                  // 🔥 DETAILS CARD
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -184,27 +258,51 @@ class _TransactionPreviewScreenState
                     child: Column(
                       children: [
 
-                        _row(Icons.account_tree, "Network", widget.network),
+                        // FROM
+                        _rowCustom(
+                          icon: Icons.account_balance_wallet,
+                          label: "From",
+                          value: "$walletName\n${shortAddress(walletAddress)}",
+                        ),
 
-                        _row(Icons.person, "To", widget.toAddress),
+                        // TO
+                        _rowCustom(
+                          icon: Icons.person,
+                          label: "To",
+                          value: shortAddress(widget.toAddress),
+                        ),
 
-                        _row(Icons.payments, "Amount",
-                            "${widget.amount} ${widget.symbol}"),
+                        // NETWORK (🔥 FIXED)
+                        _rowCustom(
+                          icon: Icons.account_tree,
+                          label: "Network",
+                          value: getDisplayNetworkName(widget.network),
+                        ),
 
                         const Divider(height: 25),
 
-                        _row(Icons.local_gas_station, "Gas Fee",
-                            "${gasFee.toStringAsFixed(6)} ${widget.symbol}"),
+                        // GAS
+                        _rowCustom(
+                          icon: Icons.local_gas_station,
+                          label: "Gas Fee",
+                          value:
+                              "${gasFee.toStringAsFixed(6)} ${WalletService.getSymbol(widget.network)}\n\$${gasUsd.toStringAsFixed(4)}",
+                        ),
 
-                        _row(Icons.calculate, "Total",
-                            "${total.toStringAsFixed(6)} ${widget.symbol}"),
+                        // TOTAL
+                        _rowCustom(
+                          icon: Icons.calculate,
+                          label: "Total",
+                          value:
+                              "${total.toStringAsFixed(6)} ${WalletService.getSymbol(widget.network)}\n\$${totalUsd.toStringAsFixed(4)}",
+                        ),
                       ],
                     ),
                   ),
 
                   const Spacer(),
 
-                  // 🔥 BUTTON
+                  // 🔥 CONFIRM BUTTON
                   ElevatedButton(
                     onPressed: widget.onConfirm,
                     style: ElevatedButton.styleFrom(
@@ -228,10 +326,19 @@ class _TransactionPreviewScreenState
     );
   }
 
-  Widget _row(IconData icon, String label, String value) {
+  // ============================
+  // 🔥 CUSTOM ROW
+  // ============================
+
+  Widget _rowCustom({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
           Icon(icon, size: 20, color: Colors.grey),
@@ -249,8 +356,9 @@ class _TransactionPreviewScreenState
             child: Text(
               value,
               textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

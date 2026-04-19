@@ -286,8 +286,8 @@ class StorageService {
     tokens.add({
       "name": token["name"],
       "symbol": token["symbol"],
-      "contract": token["contract"],
-      "decimals": token["decimals"],
+      "contract": token["contract"].toString().toLowerCase(),
+      "decimals": int.tryParse(token["decimals"].toString()) ?? 18,
       "network": token["network"],
       "isNative": false,
     });

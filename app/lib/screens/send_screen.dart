@@ -1,3 +1,5 @@
+// app/lib/screens/send_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart';
@@ -8,6 +10,7 @@ import 'dart:math';
 
 import '../core/storage_service.dart';
 import '../core/wallet_service.dart';
+import 'transaction_preview_screen.dart';
 
 class SendScreen extends StatefulWidget {
   final String walletAddress;
@@ -36,9 +39,12 @@ class _SendScreenState extends State<SendScreen> {
   int chainId = 56;
 
   List<Map<String, dynamic>> tokens = [];
-  Map<String, dynamic>? selectedToken;
+
+  String selectedTokenKey = "";
 
   double currentBalance = 0;
+
+  Map<String, double> balanceCache = {};
 
   @override
   void initState() {
@@ -47,7 +53,62 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 INIT NETWORK + BALANCE
+  // 🔥 FIXED TOKEN KEY (NO NETWORK)
+  // ============================
+
+  String getTokenKey(Map<String, dynamic> t) {
+    final contract = (t["contract"] ?? "").toString().toLowerCase();
+    return "${t["symbol"]}_$contract";
+  }
+
+  Map<String, dynamic> get currentToken {
+    return tokens.firstWhere(
+      (t) => getTokenKey(t) == selectedTokenKey,
+    );
+  }
+
+  // ============================
+  // 🔥 FAST BALANCE (FIXED NETWORK)
+  // ============================
+
+  Future<double> getTokenBalanceFast(Map<String, dynamic> token) async {
+
+    final key = getTokenKey(token);
+
+    if (balanceCache.containsKey(key)) {
+      return balanceCache[key]!;
+    }
+
+    double balValue = 0;
+
+    final tokenNetwork = token["network"] ?? selectedNetwork;
+
+    final isNative = token["isNative"] == true;
+    final decimals = int.tryParse(token["decimals"].toString()) ?? 18;
+
+    if (isNative) {
+      final bal = await WalletService.getBalance(
+        widget.walletAddress,
+        tokenNetwork,
+      );
+      balValue = double.tryParse(bal) ?? 0;
+    } else {
+      final bal = await WalletService.getTokenBalance(
+        address: widget.walletAddress,
+        contract: token["contract"],
+        decimals: decimals,
+        network: tokenNetwork,
+      );
+      balValue = double.tryParse(bal) ?? 0;
+    }
+
+    balanceCache[key] = balValue;
+
+    return balValue;
+  }
+
+  // ============================
+  // 🔥 INIT
   // ============================
 
   Future<void> initNetwork() async {
@@ -59,32 +120,16 @@ class _SendScreenState extends State<SendScreen> {
 
     final allTokens = [...defaultTokens, ...customTokens];
 
-    double balValue = 0;
-
     final firstToken = allTokens.first;
-
-    if (firstToken["isNative"] == true) {
-      final bal = await WalletService.getBalance(
-        widget.walletAddress,
-        net,
-      );
-      balValue = double.tryParse(bal) ?? 0;
-    } else {
-      final bal = await WalletService.getTokenBalance(
-        address: widget.walletAddress,
-        contract: firstToken["contract"],
-        decimals: firstToken["decimals"],
-        network: net,
-      );
-      balValue = double.tryParse(bal) ?? 0;
-    }
+    final balValue = await getTokenBalanceFast(firstToken);
 
     setState(() {
       selectedNetwork = net;
       tokens = allTokens;
-      selectedToken = firstToken;
 
-      symbol = selectedToken!["symbol"];
+      selectedTokenKey = getTokenKey(firstToken);
+      symbol = firstToken["symbol"];
+
       chainId = getChainId(net);
       currentBalance = balValue;
 
@@ -102,13 +147,13 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 SMART MAX
+  // 🔥 MAX
   // ============================
 
   void setMaxAmount() {
     if (currentBalance <= 0) return;
 
-    final isNative = selectedToken?["isNative"] == true;
+    final isNative = currentToken["isNative"] == true;
 
     double max = currentBalance;
 
@@ -127,7 +172,7 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 MAIN TRANSACTION ENGINE
+  // 🔥 SEND
   // ============================
 
   Future<void> sendTransaction() async {
@@ -135,28 +180,7 @@ class _SendScreenState extends State<SendScreen> {
     final toAddress = addressController.text.trim();
     final amountText = amountController.text.trim();
 
-    if (toAddress.isEmpty || amountText.isEmpty) {
-      showMsg("Fill all fields");
-      return;
-    }
-
-    if (!toAddress.startsWith("0x") || toAddress.length != 42) {
-      showMsg("Invalid address");
-      return;
-    }
-
-    double amount;
-    try {
-      amount = double.parse(amountText);
-    } catch (_) {
-      showMsg("Invalid amount");
-      return;
-    }
-
-    if (amount <= 0) {
-      showMsg("Amount must be greater than 0");
-      return;
-    }
+    double amount = double.parse(amountText);
 
     setState(() => isLoading = true);
 
@@ -170,13 +194,11 @@ class _SendScreenState extends State<SendScreen> {
       final credentials = EthPrivateKey.fromHex(privateKey!);
       final receiver = EthereumAddress.fromHex(toAddress);
 
-      final isNative = selectedToken?["isNative"] == true;
+      final token = currentToken;
+      final isNative = token["isNative"] == true;
 
       String txHash;
 
-      // ============================
-      // 🔥 NATIVE TRANSFER FIXED
-      // ============================
       if (isNative) {
 
         final amountInWei = BigInt.parse(
@@ -194,12 +216,8 @@ class _SendScreenState extends State<SendScreen> {
 
       } else {
 
-        // ============================
-        // 🔥 ERC20 TRANSFER FIXED
-        // ============================
-
         final contractAddress =
-            EthereumAddress.fromHex(selectedToken!["contract"]);
+            EthereumAddress.fromHex(token["contract"]);
 
         final abi = ContractAbi.fromJson(
           '''
@@ -222,7 +240,7 @@ class _SendScreenState extends State<SendScreen> {
         final contract = DeployedContract(abi, contractAddress);
 
         final decimals =
-            int.tryParse(selectedToken!["decimals"].toString()) ?? 18;
+            int.tryParse(token["decimals"].toString()) ?? 18;
 
         final amountInWei = BigInt.parse(
           (amount * pow(10, decimals)).toStringAsFixed(0),
@@ -258,7 +276,7 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   // ============================
-  // 🔥 TOKEN SELECTOR FIXED
+  // 🔥 TOKEN SELECTOR (FIXED)
   // ============================
 
   Widget buildTokenSelector() {
@@ -268,17 +286,18 @@ class _SendScreenState extends State<SendScreen> {
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey.shade100,
       ),
-      child: DropdownButton<Map<String, dynamic>>(
-        value: selectedToken,
+      child: DropdownButton<String>(
+        value: selectedTokenKey,
         isExpanded: true,
         underline: const SizedBox(),
         items: tokens.map((t) {
 
+          final key = getTokenKey(t);
           final iconPath =
               WalletService.resolveLocalIcon(t["symbol"]);
 
-          return DropdownMenuItem(
-            value: t,
+          return DropdownMenuItem<String>(
+            value: key,
             child: Row(
               children: [
                 SvgPicture.asset(
@@ -294,30 +313,24 @@ class _SendScreenState extends State<SendScreen> {
             ),
           );
         }).toList(),
-        onChanged: (val) async {
-          if (val == null) return;
+        onChanged: (key) async {
+          if (key == null) return;
 
-          double balValue = 0;
-
-          if (val["isNative"] == true) {
-            final bal = await WalletService.getBalance(
-              widget.walletAddress,
-              selectedNetwork,
-            );
-            balValue = double.tryParse(bal) ?? 0;
-          } else {
-            final bal = await WalletService.getTokenBalance(
-              address: widget.walletAddress,
-              contract: val["contract"],
-              decimals: val["decimals"],
-              network: selectedNetwork,
-            );
-            balValue = double.tryParse(bal) ?? 0;
-          }
+          final token = tokens.firstWhere(
+            (t) => getTokenKey(t) == key,
+          );
 
           setState(() {
-            selectedToken = val;
-            symbol = val["symbol"];
+            selectedTokenKey = key;
+            symbol = token["symbol"];
+            currentBalance = 0;
+          });
+
+          final balValue = await getTokenBalanceFast(token);
+
+          if (!mounted) return;
+
+          setState(() {
             currentBalance = balValue;
           });
         },
@@ -388,7 +401,6 @@ class _SendScreenState extends State<SendScreen> {
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-
                     GestureDetector(
                       onTap: pasteAddress,
                       child: const Padding(
@@ -398,7 +410,6 @@ class _SendScreenState extends State<SendScreen> {
                         ),
                       ),
                     ),
-
                     IconButton(
                       icon: const Icon(Icons.qr_code_scanner),
                       onPressed: openScanner,
@@ -440,7 +451,32 @@ class _SendScreenState extends State<SendScreen> {
             const Spacer(),
 
             ElevatedButton(
-              onPressed: isLoading ? null : sendTransaction,
+              onPressed: isLoading ? null : () {
+
+                final toAddress = addressController.text.trim();
+                final amountText = amountController.text.trim();
+
+                if (toAddress.isEmpty || amountText.isEmpty) {
+                  showMsg("Fill all fields");
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionPreviewScreen(
+                      toAddress: toAddress,
+                      amount: amountText,
+                      symbol: symbol,
+                      network: selectedNetwork,
+                      onConfirm: () {
+                        Navigator.pop(context);
+                        sendTransaction();
+                      },
+                    ),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3375BB),
                 minimumSize: const Size(double.infinity, 55),
@@ -448,7 +484,7 @@ class _SendScreenState extends State<SendScreen> {
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
-                      "Send",
+                      "Next",
                       style: TextStyle(color: Colors.white),
                     ),
             ),

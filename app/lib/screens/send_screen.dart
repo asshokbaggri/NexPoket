@@ -15,9 +15,13 @@ import 'transaction_preview_screen.dart';
 class SendScreen extends StatefulWidget {
   final String walletAddress;
 
+  final Map<String, dynamic>? initialToken;
+  
+
   const SendScreen({
     super.key,
     required this.walletAddress,
+    this.initialToken,
   });
 
   @override
@@ -153,21 +157,55 @@ class _SendScreenState extends State<SendScreen> {
 
     final allTokens = [...defaultTokens, ...customTokens];
 
-    final firstToken = allTokens.first;
-    final balValue = await getTokenBalanceFast(firstToken);
+    Map<String, dynamic> selected = allTokens.first;
+
+    // 🔥 IF TOKEN COMES FROM TOKEN DETAIL SCREEN
+    if (widget.initialToken != null) {
+      final found = allTokens.where((t) {
+
+        final tContract = (t["contract"] ?? "").toString().toLowerCase();
+        final iContract = (widget.initialToken!["contract"] ?? "")
+            .toString()
+            .toLowerCase();
+
+        return t["symbol"] == widget.initialToken!["symbol"] &&
+            tContract == iContract;
+      });
+
+      if (found.isNotEmpty) {
+        selected = found.first;
+      }
+    }
+
+    final balValue = await getTokenBalanceFast(selected);
 
     setState(() {
       selectedNetwork = net;
       tokens = allTokens;
 
-      selectedTokenKey = getTokenKey(firstToken);
-      symbol = firstToken["symbol"];
+      selectedTokenKey = getTokenKey(selected);
+      symbol = selected["symbol"];
 
       chainId = getChainId(net);
       currentBalance = balValue;
 
       isInitializing = false;
     });
+
+    setState(() {
+      selectedNetwork = net;
+      tokens = allTokens;
+
+      selectedTokenKey = getTokenKey(selected);
+      symbol = selected["symbol"];
+
+      chainId = getChainId(net);
+      currentBalance = balValue;
+
+      isInitializing = false;
+    });
+
+    validateInput();
   }
 
   int getChainId(String network) {

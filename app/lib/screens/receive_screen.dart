@@ -12,7 +12,13 @@ import '../core/wallet_service.dart';
 class ReceiveScreen extends StatefulWidget {
   final String walletAddress;
 
-  const ReceiveScreen({super.key, required this.walletAddress});
+  final Map<String, dynamic>? initialToken;
+
+  const ReceiveScreen({
+    super.key,
+    required this.walletAddress,
+    this.initialToken,
+  });
 
   @override
   State<ReceiveScreen> createState() => _ReceiveScreenState();
@@ -42,11 +48,31 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
     final allTokens = [...defaultTokens, ...customTokens];
 
+    Map<String, dynamic> selected = allTokens.first;
+
+    // 🔥 IF TOKEN COMES FROM TOKEN DETAIL SCREEN
+    if (widget.initialToken != null) {
+      final found = allTokens.where((t) {
+
+        final tContract = (t["contract"] ?? "").toString().toLowerCase();
+        final iContract = (widget.initialToken!["contract"] ?? "")
+            .toString()
+            .toLowerCase();
+
+        return t["symbol"] == widget.initialToken!["symbol"] &&
+            tContract == iContract;
+      });
+
+      if (found.isNotEmpty) {
+        selected = found.first;
+      }
+    }
+
     setState(() {
       selectedNetwork = net;
       tokens = allTokens;
-      selectedToken = allTokens.first;
-      symbol = selectedToken!["symbol"];
+      selectedToken = selected;
+      symbol = selected["symbol"];
     });
   }
 
